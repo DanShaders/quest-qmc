@@ -50,11 +50,6 @@ module DQMC_Util
   integer, parameter :: DLARNV_NORMAL   = 3
 
 
- 
-  interface conjg
-     module procedure conjg_real, conjg_real1, conjg_real2
-  end interface conjg
-
   interface DQMC_JackKnife
      module procedure DQMC_JackKnife_Real, DQMC_JackKnife_Complex
   end interface DQMC_JackKnife
@@ -68,28 +63,6 @@ module DQMC_Util
   end interface DQMC_Print_Array
 
 contains
-
-  !--------------------------------------------------------!
-  ! Function extension for conjg
-  !--------------------------------------------------------|
-
-  function conjg_real(x) result(y)
-      real*8, target, intent(in) :: x
-      real*8, pointer :: y 
-      y => x
-  end function conjg_real
-
-  function conjg_real1(x) result(y)
-      real*8, target, intent(in) :: x(:)
-      real*8, pointer :: y(:)
-      y => x
-  end function conjg_real1
-
-  function conjg_real2(x) result(y)
-      real*8, target, intent(in) :: x(:,:)
-      real*8, pointer :: y(:,:)
-      y => x
-  end function conjg_real2
 
   !--------------------------------------------------------!
   ! Matrix computations
