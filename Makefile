@@ -4,7 +4,7 @@
 QUEST_DIR = $(shell pwd)
 
 # 1) gnu, 2) intel
-COMPILER  = intel
+COMPILER = gnu
 
 # 1) default, 2) mkl_seq, 3) mkl_par 4) intel
 LAPACK    = intel
@@ -113,7 +113,7 @@ ifeq ($(LAPACK), mkl_par)
 endif
 
 ifeq ($(LAPACK), intel)
-  LAPACKLIB = -mkl=sequential -static-intel
+  LAPACKLIB = -llapack -lblas
 endif
 
 
