@@ -6,6 +6,7 @@ find_package(OpenBLAS REQUIRED CONFIG)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED On)
+set(CMAKE_EXPORT_COMPILE_COMMANDS On)
 
 add_compile_options(-fPIE)
 add_link_options(-fPIE)
