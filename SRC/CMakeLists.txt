@@ -21,7 +21,10 @@ set(SOURCES
     dqmc_symm.F90
     dqmc_tdm1.F90
     dqmc_tdm2.F90
-    dqmc_util.F90
+        detour_dqmc_util.F90
+        detour_dqmc_util_defs.F90
+        dqmc_util.cpp
+        dqmc_util.F90
     dqmc_wspace.F90
 
     blaslapack.c++
