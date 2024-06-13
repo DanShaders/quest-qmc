@@ -31,5 +31,6 @@ set(SOURCES
 )
 
 add_library(dqmc STATIC ${SOURCES})
+target_compile_options(dqmc PRIVATE $<$<COMPILE_LANGUAGE:Fortran>:-Wno-c-binding-type>)
 target_link_libraries(dqmc INTERFACE OpenBLAS::OpenBLAS)
 target_include_directories(dqmc INTERFACE ${CMAKE_CURRENT_BINARY_DIR})

@@ -4,7 +4,7 @@ project(QuestQMC LANGUAGES C CXX Fortran)
 
 find_package(OpenBLAS REQUIRED CONFIG)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED On)
 
 add_compile_options(
