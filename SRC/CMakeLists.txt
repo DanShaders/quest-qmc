@@ -1,7 +1,10 @@
 set(SOURCES
     dqmc_2dperl.F90
     dqmc_bonds.F90
-    dqmc_cfg.F90
+        detour_dqmc_cfg.F90
+        detour_dqmc_cfg_defs.F90
+        dqmc_cfg.cpp
+        dqmc_cfg.F90
     dqmc_geom_param.F90
     dqmc_geom_wrap.F90
     dqmc_gfun.F90

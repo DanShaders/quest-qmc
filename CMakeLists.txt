@@ -7,6 +7,9 @@ find_package(OpenBLAS REQUIRED CONFIG)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED On)
 
+add_compile_options(-fPIE)
+add_link_options(-fPIE)
+
 add_compile_options(
     -fopenmp -O3 -Wall
     $<$<COMPILE_LANGUAGE:Fortran>:-std=legacy>
