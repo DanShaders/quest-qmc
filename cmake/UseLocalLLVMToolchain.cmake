@@ -1,0 +1,5 @@
+set(CMAKE_C_COMPILER "${LLVM_ROOT}/bin/clang" CACHE STRING "")
+set(CMAKE_CXX_COMPILER "${LLVM_ROOT}/bin/clang++" CACHE STRING "")
+
+set(DQMC_USE_LIBCXX On CACHE BOOL "")
+set(DQMC_LINK_RPATH "${LLVM_ROOT}/lib/x86_64-unknown-linux-gnu" CACHE STRING "")

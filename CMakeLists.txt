@@ -11,6 +11,14 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS On)
 add_compile_options(-fPIE)
 add_link_options(-fPIE)
 
+if (DQMC_USE_LIBCXX)
+    add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-stdlib=libc++>)
+    add_link_options(-stdlib=libc++)
+endif()
+if (NOT DQMC_LINK_RPATH STREQUAL "")
+    add_link_options(-rpath "${DQMC_LINK_RPATH}")
+endif()
+
 add_compile_options(
     -fopenmp -O3 -Wall
     $<$<COMPILE_LANGUAGE:Fortran>:-std=legacy>
