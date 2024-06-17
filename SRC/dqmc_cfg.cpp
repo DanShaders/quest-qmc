@@ -1,936 +1,219 @@
-#include "common.h"
+#include "SRC/config.h"
 
-struct config;
+#include <fast_float/fast_float.h>
+#include <fstream>
+#include <ranges>
+#include <utility>
+
+namespace dqmc {
+
+std::expected<int, Empty> parse_integer(std::string_view value);
+std::expected<bool, Empty> parse_boolean(std::string_view value);
+std::expected<double, Empty> parse_double(std::string_view value);
+std::expected<std::vector<double>, std::string_view> parse_double_array(std::string_view value);
+
+} // namespace dqmc
+
+namespace {
+
+struct config {
+    std::unique_ptr<dqmc::ConfigParameters> config_parameters;
+};
+static_assert(sizeof(config) == 8);
+
+std::map<std::string_view, std::string_view, std::less<>> const config_default_values = {
+    { "hsf"sv, "-1"sv },
+    { "hsfin"sv, "HSF.in"sv },
+    { "hsfout"sv, "HSF.out"sv },
+    { "hsftype"sv, "0"sv },
+    { "l"sv, "12"sv },
+    { "u"sv, "0"sv },
+    { "accept"sv, "0"sv },
+    { "bcond"sv, "0,0,0"sv },
+    { "debug"sv, "0"sv },
+    { "delta1"sv, "1"sv },
+    { "delta2"sv, "1"sv },
+    { "difflim"sv, "0.001"sv },
+    { "dmu"sv, "0"sv },
+    { "dtau"sv, "0.125"sv },
+    { "errrate"sv, "0.001"sv },
+    { "fixwrap"sv, "0"sv },
+    { "gamma"sv, "0"sv },
+    { "gfile"sv, "geom.def"sv },
+    { "mu_dn"sv, "0"sv },
+    { "mu_up"sv, "0"sv },
+    { "n"sv, "16"sv },
+    { "nbin"sv, "10"sv },
+    { "nhist"sv, "0"sv },
+    { "nitvl"sv, "4"sv },
+    { "north"sv, "12"sv },
+    { "npass"sv, "5000"sv },
+    { "ntry"sv, "0"sv },
+    { "nwarm"sv, "1000"sv },
+    { "nwrap"sv, "12"sv },
+    { "nx"sv, "4"sv },
+    { "ny"sv, "4"sv },
+    { "nz"sv, "2"sv },
+    { "ofile"sv, "quest"sv },
+    { "reject"sv, "0"sv },
+    { "seed"sv, "0"sv },
+    { "ssxx"sv, "0"sv },
+    { "t_dn"sv, "1"sv },
+    { "t_up"sv, "1"sv },
+    { "tausk"sv, "10"sv },
+    { "tdm"sv, "0"sv },
+};
+
+} // namespace
 
 extern "C" void detour_dqmc_cfg_dqmc_readln(CFI_cdesc_t* str, i32* ipt, i32* status);
 extern "C" void fortran_dqmc_cfg_dqmc_readln(CFI_cdesc_t* str, i32* ipt, i32* status)
 {
-    // subroutine DQMC_ReadLn(str, IPT, status)
-    //   !
-    //   ! Purpose
-    //   ! =======
-    //   !    This subrotine reads in a line from file.
-    //   !    It will get rid of #.
-    //   !
-    //   ! Arguments
-    //   ! =========
-    //   !
-    //   character(len=llen)  :: str
-    //   integer              :: status
-    //   intent(inout)        :: str, status
-    //   integer, intent(in)  :: IPT
-    //
-    //   ! ... Local Variables ...
-    //   integer                :: ios, pos
-    //
-    //   ! ... Executable ...
-    //
-    //   read (unit=IPT, FMT="(a)", iostat=ios)  str
-    //   status = STAT_COMMENT
-    //
-    //   ! end of file
-    //   if (ios .ne. 0) then
-    //      status = STAT_EOF
-    //      return
-    //   end if
-    //
-    //   ! find comment # and get rid of the tailing part
-    //   pos = scan(str, COMMENT, .false.)
-    //   if (pos .ne. 0) then
-    //      ! find the comment sign
-    //      if (pos .ge. 2) then
-    //         str = str(1:pos-1)
-    //      else
-    //         str = ""
-    //      end if
-    //   end if
-    //
-    //   if (len_trim(str) .gt. 0) then
-    //      status = STAT_NORMAL
-    //   end if
-    //
-    // end subroutine DQMC_ReadLn
     return detour_dqmc_cfg_dqmc_readln(str, ipt, status);
 }
 
-extern "C" void detour_dqmc_cfg_dqmc_default_def(config* cfg);
 extern "C" void fortran_dqmc_cfg_dqmc_default_def(config* cfg)
 {
-    // subroutine DQMC_Default_Def(cfg)
-    //   !
-    //   ! Purpose
-    //   ! =======
-    //   !    This subrotine initializes default configuration def.
-    //   !    when the config.def is missing.
-    //   !
-    //   ! Arguments
-    //   ! =========
-    //   !
-    //   type(config), intent(inout)  :: cfg          ! configuration
-    //
-    //   ! ... Local Variable ...
-    //   type(Param),pointer    :: curr
-    //   integer :: i
-    //
-    //   ! ... Executable ...
-    //   cfg%nParam = N_Param
-    //   allocate(cfg%record(cfg%nParam))
-    //
-    //   do i = 1, N_Param
-    //      curr => cfg%record(i)
-    //      curr%id         = i
-    //      curr%pname      = PARAM_NAME(i)
-    //      curr%ptype      = PARAM_TYPE(i)
-    //      curr%isArray    = PARAM_ARRAY(i)
-    //      curr%defaultval = PARAM_DVAL(i)
-    //
-    //      if (curr%ptype .eq. TYPE_REAL) then
-    //         read(curr%defaultval,*) curr%rval
-    //      elseif (curr%ptype .eq. TYPE_INTEGER) then
-    //         read(curr%defaultval,*) curr%ival
-    //      end if
-    //
-    //      curr%isSet      = .false.
-    //      nullify(curr%iptr)
-    //      nullify(curr%rptr)
-    //      nullify(curr%next)
-    //   end do
-    //
-    // end subroutine DQMC_Default_Def
-    return detour_dqmc_cfg_dqmc_default_def(cfg);
 }
 
-extern "C" void detour_dqmc_cfg_dqmc_config_free(config* cfg);
 extern "C" void fortran_dqmc_cfg_dqmc_config_free(config* cfg)
 {
-    // subroutine DQMC_Config_Free(cfg)
-    //   !
-    //   ! Purpose
-    //   ! =======
-    //   !    This subrotine initializes default configuration def.
-    //   !    when the config.def is missing.
-    //   !
-    //   ! Arguments
-    //   ! =========
-    //   !
-    //   type(config), intent(inout)  :: cfg          ! configuration
-    //
-    //   ! ... Local ...
-    //   integer :: i
-    //
-    //   ! ... Executable ...
-    //
-    //   do i = 1, cfg%nParam
-    //      if (associated(cfg%record(i)%rptr)) then
-    //         deallocate(cfg%record(i)%rptr)
-    //      end if
-    //      if (associated(cfg%record(i)%iptr)) then
-    //         deallocate(cfg%record(i)%iptr)
-    //      end if
-    //   end do
-    //
-    //   deallocate(cfg%record)
-    //
-    // end subroutine DQMC_Config_Free
-    return detour_dqmc_cfg_dqmc_config_free(cfg);
+    cfg->config_parameters.~unique_ptr();
 }
 
-extern "C" void detour_dqmc_cfg_dqmc_read_def(config* cfg, i32* ipt);
-extern "C" void fortran_dqmc_cfg_dqmc_read_def(config* cfg, i32* ipt)
-{
-    // subroutine DQMC_Read_Def(cfg, IPT)
-    //   !
-    //   ! Purpose
-    //   ! =======
-    //   !    This subrotine reads in parameters from a config file.
-    //   !
-    //   ! Arguments
-    //   ! =========
-    //   !
-    //   type(config), intent(inout)  :: cfg          ! configuration
-    //   integer, intent(in)          :: IPT          ! Input file handle
-    //
-    //   ! ... Local Variable ...
-    //   integer                :: stat, i, cnt
-    //   character(len=llen)    :: str
-    //   type(Param),pointer    :: head
-    //   type(Param),pointer    :: curr
-    //   type(Param),pointer    :: tmp
-    //   logical                :: found
-    //   ! ... Executable ...
-    //
-    //   ! satinize
-    //   nullify(curr)
-    //   nullify(head)
-    //   cnt  = 0
-    //   stat = STAT_COMMENT
-    //
-    //   ! read config def
-    //   ! for fast access, sort records by name
-    //   ! using insertion sort
-    //   do while (stat .ne. STAT_EOF)
-    //      call DQMC_ReadLn(str, IPT, stat)
-    //
-    //      ! read in a parameter definition
-    //      if (stat .eq. STAT_NORMAL) then
-    //
-    //         ! allocate space
-    //         if (cnt .eq. 0) then
-    //            allocate(head)
-    //            curr => head
-    //         else
-    //            allocate(curr)
-    //         end if
-    //         nullify(curr%next)
-    //
-    //         cnt = cnt + 1
-    //         ! read in [name][type][is array][is critical][default value]
-    //         read(str, *)  curr%pname, curr%ptype,  curr%isArray, curr%defaultval
-    //
-    //         if (cnt .gt. 1) then
-    //            ! insertion sort
-    //            ! if curr < head, put it as the first one
-    //            if (LGT(head%pname, curr%pname)) then
-    //               curr%next => head
-    //               head      => curr
-    //            else  ! curr >= head
-    //               ! find a record tmp, which is > curr, but its next is < curr.
-    //               tmp => head
-    //               found = .false.
-    //               do while (.not. found .and. associated(tmp%next))
-    //                  ! tmp > curr
-    //                  if (LGT(tmp%next%pname, curr%pname)) then
-    //                     curr%next => tmp%next
-    //                     tmp%next  => curr
-    //                     found = .true.
-    //                  else
-    //                     tmp => tmp%next
-    //                  end if
-    //               end do
-    //               ! curr is the largest
-    //               if (.not. found) then
-    //                  tmp%next => curr
-    //               end if
-    //            end if
-    //         end if
-    //      end if
-    //   end do
-    //
-    //   ! allocate space for records
-    //   cfg%nParam = cnt
-    //   allocate(cfg%record(cnt))
-    //
-    //   tmp  => head
-    //   do i = 1, cnt
-    //      curr => cfg%record(i)
-    //      curr%id         = i
-    //      curr%pname      = tmp%pname
-    //      curr%ptype      = tmp%ptype
-    //      curr%isArray    = tmp%isArray
-    //      curr%defaultval = tmp%defaultval
-    //      if (curr%ptype .eq. TYPE_REAL) then
-    //         read(curr%defaultval,*) curr%rval
-    //      elseif (curr%ptype .eq. TYPE_INTEGER) then
-    //         read(curr%defaultval,*) curr%ival
-    //      end if
-    //
-    //      curr%isSet      = .false.
-    //      nullify(curr%iptr)
-    //      nullify(curr%rptr)
-    //      nullify(curr%next)
-    //
-    //      ! free allocated space
-    //      tmp => head%next
-    //      deallocate(head)
-    //      head => tmp
-    //   end do
-    //
-    //   cfg%hasDef = .true.
-    //
-    // end subroutine DQMC_Read_Def
-    return detour_dqmc_cfg_dqmc_read_def(cfg, ipt);
-}
+extern "C" void binding_config_filename(CFI_cdesc_t* filename);
+extern "C" void binding_free_config_filename(CFI_cdesc_t* filename);
 
-extern "C" void detour_dqmc_cfg_dqmc_print_def(config* cfg, i32* opt);
-extern "C" void fortran_dqmc_cfg_dqmc_print_def(config* cfg, i32* opt)
-{
-    //   subroutine DQMC_Print_Def(cfg, OPT)
-    //     !
-    //     ! Purpose
-    //     ! =======
-    //     !    This subrotine prints condifuration definitions.
-    //     !
-    //     ! Arguments
-    //     ! =========
-    //     !
-    //     type(config), intent(inout)  :: cfg          ! configuration
-    //     integer, intent(in)          :: OPT          ! Input file handle
-    //
-    //     ! ... Local Variable ...
-    //     integer                :: i
-    //     type(Param), pointer   :: curr
-    //
-    //     ! ... Executable ...
-    //
-    //     write(OPT, 200) "ID", " Name","Default", "Type"
-    //     write(OPT, "(53('='))")
-    //     do i = 1, cfg%nParam
-    //        curr => cfg%record(i)
-    //        if (curr%isArray) then
-    //           write(OPT, 100) curr%id, curr%pname, curr%defaultval, &
-    //                TYPE_STR(curr%ptype), "Array  "
-    //        else
-    //           write(OPT, 100) curr%id, curr%pname, curr%defaultval, &
-    //                TYPE_STR(curr%ptype), "Scalar "
-    //        end if
-    //     end do
-    //
-    // 100 format(i5,2X,a10,2X,a10,2X,a10,2X,a10)
-    // 200 format(a5,1X,a5,5X,a10,1X,a10)
-    //   end subroutine DQMC_Print_Def
-    return detour_dqmc_cfg_dqmc_print_def(cfg, opt);
-}
-
-extern "C" i32 detour_dqmc_cfg_dqmc_find_param(config* cfg, CFI_cdesc_t* pname);
-extern "C" i32 fortran_dqmc_cfg_dqmc_find_param(config* cfg, CFI_cdesc_t* pname)
-{
-    // function DQMC_Find_Param(cfg, pname)result(id)
-    //   !
-    //   ! Purpose
-    //   ! =======
-    //   !    This subrotine returns the id of given parameter name.
-    //   !    It will return -1 if no match is found.
-    //   !
-    //   ! Arguments
-    //   ! =========
-    //   !
-    //   type(config), intent(in)     :: cfg       ! configuration
-    //   character(*), intent(in)  :: pname        ! Parameter name
-    //   integer :: id
-    //   character(len(pname)) :: uppname, uprecord
-    //
-    //   ! ... Local Variable ...
-    //   integer :: high, low
-    //   logical :: found
-    //   ! ... Executable ...
-    //
-    //   ! binary search
-    //   low   = 1
-    //   high  = cfg%nParam
-    //   uppname = uppercase(pname)
-    //
-    //   found = .false.
-    //   do id = 1, high
-    //      uprecord = uppercase(cfg%record(id)%pname)
-    //      if (uppname .eq. uprecord) then
-    //         found = .true.
-    //         exit
-    //      endif
-    //   enddo
-    //
-    //   !do while (.not. found .and. (low .le. high))
-    //   !   id = (low+high)/2
-    //   !   ! pname > param(id)
-    //   !   if (LGT(pname, cfg%record(id)%pname)) then
-    //   !      low  = id + 1
-    //   !      ! pname < param(id)
-    //   !   elseif (LLT(pname, cfg%record(id)%pname)) then
-    //   !      high = id - 1
-    //   !      !
-    //   !   else
-    //   !      found = .true.
-    //   !   end if
-    //   !end do
-    //
-    //   if (.not. found) then
-    //      id = -1
-    //   end if
-    //
-    // contains
-    //
-    //   function uppercase(string) result(newstring)
-    //
-    //      character(len=*), intent(in) :: string
-    //      character(len=len(string)) :: newstring
-    //      integer :: j
-    //
-    //      do j = 1,len(string)
-    //         if(string(j:j) >= "a" .and. string(j:j) <= "z") then
-    //             newstring(j:j) = achar(iachar(string(j:j)) - 32)
-    //         else
-    //             newstring(j:j) = string(j:j)
-    //         end if
-    //      end do
-    //      newstring = adjustl(newstring)
-    //
-    //   end function uppercase
-    //
-    // end function DQMC_Find_Param
-    return detour_dqmc_cfg_dqmc_find_param(cfg, pname);
-}
-
-extern "C" void detour_dqmc_cfg_dqmc_read_config(config* cfg);
 extern "C" void fortran_dqmc_cfg_dqmc_read_config(config* cfg)
 {
-    // subroutine DQMC_Read_Config(cfg)
-    //   !
-    //   ! Purpose
-    //   ! =======
-    //   !    This subrotine reads in parameters from a config file.
-    //   !
-    //   ! Arguments
-    //   ! =========
-    //   !
-    //   type(config), intent(inout)  :: cfg          ! configuration
-    //
-    //   ! ... Local Variable ...
-    //   integer                :: ios, pos, line, j, id
-    //   character(len=llen)    :: str, attr, val
-    //   logical                :: found
-    //   real(wp)               :: tmp(alen)          ! for reading t
-    //   type(Param), pointer   :: curr
-    //   integer, parameter     :: funit = 10
-    //   character(len=60)      :: iname
-    //   integer                :: IPT, status
-    //
-    //   ! ... Executable ...
-    //
-    //   ! Fetch input file name from command line
-    //   call get_command_argument(1, iname, STATUS=status)
-    //   if (status > 0) then
-    //      call DQMC_Error("failed to retrieve input file argument", 0)
-    //   elseif (status == -1) then
-    //      call DQMC_Error("String 'iname' is too small to hold input file name, recompile me with a larger ifile!", 0)
-    //   end if
-    //
-    //   ! Open input file
-    //   call DQMC_open_file(iname, 'old', IPT)
-    //
-    //   ! read def first
-    //   if (.not. cfg%hasDef) then
-    //      ! read def file
-    //      inquire(file="config.def", exist=found)
-    //      if (found) then
-    //         open(unit = funit, file="config.def")
-    //         call DQMC_Read_Def(cfg, funit)
-    //         close(funit)
-    //      else
-    //         ! use default def
-    //         call DQMC_Default_Def(cfg)
-    //      end if
-    //   end if
-    //
-    //   ! read real config file
-    //   line = 0
-    //   do
-    //      line = line + 1
-    //      read (unit=IPT, FMT="(a)", iostat=ios)  str
-    //
-    //      ! end of file
-    //      if (ios .ne. 0) then
-    //         exit
-    //      end if
-    //
-    //      ! find comment  # and get rid of the tailing part
-    //      pos = scan(str, COMMENT, .false.)
-    //      if (pos .ne. 0) then
-    //         ! find the comment sign
-    //         if (pos .ge. 2) then
-    //            str = str(1:pos-1)
-    //         else
-    //            str = ""
-    //         end if
-    //      end if
-    //
-    //      ! trim the read in string
-    //      if (len_trim(str) .gt. 0) then
-    //         ! find separator =
-    //         pos = scan(str, SEPARAT, .false.)
-    //
-    //         if (pos .ne. 0) then
-    //            ! read name and data
-    //            attr = adjustl(str(1:pos-1))
-    //            val  = adjustl(str(pos+1:llen))
-    //
-    //            ! search parameter definition
-    //            id = DQMC_Find_Param(cfg, attr)
-    //
-    //            ! found it
-    //            if (id .gt. 0) then
-    //               curr => cfg%record(id)
-    //               if (curr%isArray) then
-    //                  ! array case
-    //                  if  (curr%ptype .eq. TYPE_REAL .or. &
-    //                       curr%ptype .eq. TYPE_INTEGER) then
-    //                     j = 1
-    //                     pos = scan(val, COMMA, .false.)
-    //
-    //                     ! For more than one t
-    //                     do while(pos .gt. 0)
-    //                        read(val(1:pos-1), *)  tmp(j)
-    //                        val = val(pos+1:llen)
-    //                        j = j + 1
-    //                        pos = scan(val, COMMA, .false.)
-    //                     end do
-    //
-    //                     ! the last one
-    //                     read(val,*) tmp(j)
-    //
-    //                     ! copy to new allocated PR
-    //                     if (curr%ptype .eq. TYPE_REAL) then
-    //                        allocate(curr%rptr(j))
-    //                        curr%ival = j
-    //                        curr%rptr = tmp(1:j)
-    //                     else
-    //                        allocate(curr%iptr(j))
-    //                        curr%ival = j
-    //                        curr%iptr = int(tmp(1:j))
-    //                     end if
-    //                  else
-    //                     call DQMC_Warning("Array only for real and integer",1)
-    //                  end if
-    //               else
-    //                  ! scalar case
-    //                  select case(curr%ptype)
-    //                  case (TYPE_REAL)
-    //                     read(val,*) curr%rval
-    //                  case (TYPE_INTEGER)
-    //                     read(val,*) curr%ival
-    //                  case (TYPE_STRING)
-    //                     curr%defaultval=val(1:slen)
-    //                  end select
-    //               end if
-    //
-    //               ! mark the flag
-    //               curr%isSet = .true.
-    //
-    //            else
-    //               call DQMC_Warning("Warning: unknown input:"//trim(str),1)
-    //            end if
-    //         else
-    //            call DQMC_Warning("cannot recog input line :", line)
-    //         end if
-    //      end if
-    //   end do
-    //
-    // end subroutine DQMC_Read_Config
-    return detour_dqmc_cfg_dqmc_read_config(cfg);
+    CFI_cdesc_t filename_descriptor {};
+    binding_config_filename(&filename_descriptor);
+
+    std::string_view config_filename = dqmc::as_string_view(&filename_descriptor);
+
+    std::ifstream config_reader { config_filename };
+    VERIFY(config_reader.good());
+
+    auto configuration_or_error = dqmc::ConfigParameters::create(config_reader);
+    if (!configuration_or_error.has_value()) {
+        std::println("ConfigurationFile::create: {}", configuration_or_error.error());
+        VERIFY_NOT_REACHED();
+    }
+    cfg->config_parameters = std::move(configuration_or_error.value());
+
+    binding_free_config_filename(&filename_descriptor);
 }
 
-extern "C" void detour_dqmc_cfg_dqmc_config_seti(config* cfg, CFI_cdesc_t* name, i32* value);
+static std::string key_from_descriptor(CFI_cdesc_t* name)
+{
+    return dqmc::as_string_view(name)
+        | std::views::transform(dqmc::ascii_to_lower)
+        | std::ranges::to<std::string>();
+}
+
 extern "C" void fortran_dqmc_cfg_dqmc_config_seti(config* cfg, CFI_cdesc_t* name, i32* value)
 {
-    // subroutine DQMC_Config_SetI(cfg, name, value)
-    //   !
-    //   ! Purpose
-    //   ! =======
-    //   !    This subrotine set configurations.
-    //   !
-    //   ! Arguments
-    //   ! =========
-    //   !
-    //   type(config), intent(inout)  :: cfg          ! configuration
-    //   character(len=*), intent(in) :: name
-    //   integer, intent(in)          :: value  !
-    //
-    //   ! ... Local variables...
-    //   integer :: id
-    //
-    //   ! ... Executable ...
-    //
-    //
-    //   id = DQMC_Find_Param(cfg, name)
-    //   if (id .gt. 0) then
-    //      cfg%record(id)%ival = value
-    //      cfg%record(id)%isSet = .true.
-    //   else
-    //      call DQMC_Error("cannot find parameter "//name, 0)
-    //   end if
-    //
-    // end subroutine DQMC_Config_SetI
-    return detour_dqmc_cfg_dqmc_config_seti(cfg, name, value);
+    cfg->config_parameters->parameters()[key_from_descriptor(name)] = {
+        .value = std::to_string(*value),
+    };
 }
 
-extern "C" void detour_dqmc_cfg_dqmc_config_setr(config* cfg, CFI_cdesc_t* name, f64* value);
 extern "C" void fortran_dqmc_cfg_dqmc_config_setr(config* cfg, CFI_cdesc_t* name, f64* value)
 {
-    // subroutine DQMC_Config_SetR(cfg, name, value)
-    //   !
-    //   ! Purpose
-    //   ! =======
-    //   !    This subrotine set configurations.
-    //   !
-    //   ! Arguments
-    //   ! =========
-    //   !
-    //   type(config), intent(inout)  :: cfg          ! configuration
-    //   character(len=*), intent(in) :: name
-    //   real(wp), intent(in)         :: value
-    //
-    //   ! ... Local variables...
-    //   integer :: id
-    //
-    //   ! ... Executable ...
-    //
-    //   id = DQMC_Find_Param(cfg, name)
-    //   if (id .gt. 0) then
-    //      cfg%record(id)%rval = value
-    //      cfg%record(id)%isSet = .true.
-    //   else
-    //      call DQMC_Error("cannot find parameter "//name, 0)
-    //   end if
-    //
-    // end subroutine DQMC_Config_SetR
-    return detour_dqmc_cfg_dqmc_config_setr(cfg, name, value);
+    cfg->config_parameters->parameters()[key_from_descriptor(name)] = {
+        .value = std::format("{}", *value),
+    };
 }
 
-extern "C" void detour_dqmc_cfg_dqmc_config_setpr(config* cfg, CFI_cdesc_t* name, i32* n, CFI_cdesc_t* value);
-extern "C" void fortran_dqmc_cfg_dqmc_config_setpr(config* cfg, CFI_cdesc_t* name, i32* n, CFI_cdesc_t* value)
+extern "C" void fortran_dqmc_cfg_dqmc_config_setpr(config* cfg, CFI_cdesc_t* name, i32* n, f64* value)
 {
-    // subroutine DQMC_Config_SetPR(cfg, name, n, value)
-    //   !
-    //   ! Purpose
-    //   ! =======
-    //   !    This subrotine set configurations.
-    //   !
-    //   ! Arguments
-    //   ! =========
-    //   !
-    //   type(config), intent(inout)  :: cfg          ! configuration
-    //   character(len=*), intent(in) :: name
-    //   real(wp), intent(in)         :: value(n)
-    //   integer, intent(in)          :: n
-    //
-    //   ! ... Local variables...
-    //   integer :: id
-    //
-    //   ! ... Executable ...
-    //   id = DQMC_Find_Param(cfg, name)
-    //   if (id .gt. 0) then
-    //      cfg%record(id)%ival = n
-    //      if(associated(cfg%record(id)%rptr)) then
-    //         deallocate(cfg%record(id)%rptr)
-    //      end if
-    //      allocate(cfg%record(id)%rptr(n))
-    //      cfg%record(id)%rptr = value
-    //      cfg%record(id)%isSet = .true.
-    //   else
-    //      call DQMC_Error("cannot find parameter "//name, 0)
-    //   end if
-    //
-    // end subroutine DQMC_Config_SetPR
-    return detour_dqmc_cfg_dqmc_config_setpr(cfg, name, n, value);
+    cfg->config_parameters->parameters()[key_from_descriptor(name)] = {
+        .value = std::format("{:n}", std::span<f64> { value, value + *n }),
+    };
 }
 
-extern "C" void detour_dqmc_cfg_dqmc_config_setpi(config* cfg, CFI_cdesc_t* name, i32* n, CFI_cdesc_t* value);
-extern "C" void fortran_dqmc_cfg_dqmc_config_setpi(config* cfg, CFI_cdesc_t* name, i32* n, CFI_cdesc_t* value)
-{
-    // subroutine DQMC_Config_SetPI(cfg, name, n, value)
-    //   !
-    //   ! Purpose
-    //   ! =======
-    //   !    This subrotine set configurations.
-    //   !
-    //   ! Arguments
-    //   ! =========
-    //   !
-    //   type(config), intent(inout)  :: cfg          ! configuration
-    //   character(len=*), intent(in) :: name
-    //   integer, intent(in)          :: value(n)
-    //   integer, intent(in)          :: n
-    //
-    //   ! ... Local variables...
-    //   integer :: id
-    //
-    //   ! ... Executable ...
-    //   id = DQMC_Find_Param(cfg, name)
-    //   if (id .gt. 0) then
-    //      cfg%record(id)%ival = n
-    //      if(associated(cfg%record(id)%iptr)) then
-    //         deallocate(cfg%record(id)%iptr)
-    //      end if
-    //      allocate(cfg%record(id)%iptr(n))
-    //      cfg%record(id)%iptr = value
-    //      cfg%record(id)%isSet = .true.
-    //   else
-    //      call DQMC_Error("cannot find parameter "//name, 0)
-    //   end if
-    //
-    // end subroutine DQMC_Config_SetPI
-    return detour_dqmc_cfg_dqmc_config_setpi(cfg, name, n, value);
-}
-
-extern "C" void detour_dqmc_cfg_dqmc_config_sets(config* cfg, CFI_cdesc_t* name, CFI_cdesc_t* value);
 extern "C" void fortran_dqmc_cfg_dqmc_config_sets(config* cfg, CFI_cdesc_t* name, CFI_cdesc_t* value)
 {
-    // subroutine DQMC_Config_SetS(cfg, name, value)
-    //   !
-    //   ! Purpose
-    //   ! =======
-    //   !    This subrotine set configurations.
-    //   !
-    //   ! Arguments
-    //   ! =========
-    //   !
-    //   type(config), intent(inout)  :: cfg          ! configuration
-    //   character(*), intent(in)     :: name
-    //   character(*), intent(in)     :: value
-    //
-    //   ! ... Local variables...
-    //   integer :: id
-    //
-    //   ! ... Executable ...
-    //   id = DQMC_Find_Param(cfg, name)
-    //   if (id .gt. 0) then
-    //      cfg%record(id)%defaultval = value
-    //      cfg%record(id)%isSet = .true.
-    //   else
-    //      call DQMC_Error("cannot find parameter "//name, 0)
-    //   end if
-    //
-    // end subroutine DQMC_Config_SetS
-    return detour_dqmc_cfg_dqmc_config_sets(cfg, name, value);
+    cfg->config_parameters->parameters()[key_from_descriptor(name)] = {
+        .value = std::string { dqmc::as_string_view(value) },
+    };
 }
 
-extern "C" i32 detour_dqmc_cfg_dqmc_config_isset(config* cfg, CFI_cdesc_t* name);
 extern "C" i32 fortran_dqmc_cfg_dqmc_config_isset(config* cfg, CFI_cdesc_t* name)
 {
-    // function DQMC_Config_isSet(cfg, name) result(isSet)
-    //   !
-    //   ! Purpose
-    //   ! =======
-    //   !    This subrotine set configurations.
-    //   !
-    //   ! Arguments
-    //   ! =========
-    //   !
-    //   type(config), intent(in)  :: cfg          ! configuration
-    //   character(*), intent(in)  :: name
-    //   logical                   :: isSet        !
-    //
-    //   ! ... local variables
-    //   integer :: id
-    //
-    //   ! ... Executable ...
-    //
-    //   id = DQMC_Find_Param(cfg, name)
-    //   isSet = .false.
-    //   if (id .gt. 0) then
-    //      isSet = cfg%record(id)%isSet
-    //   else
-    //      call DQMC_Error("cannot find parameter "//name, 0)
-    //   end if
-    //
-    // end function DQMC_Config_isSet
-    return detour_dqmc_cfg_dqmc_config_isset(cfg, name);
+    return cfg->config_parameters->parameters().contains(key_from_descriptor(name));
 }
 
-extern "C" void detour_dqmc_cfg_dqmc_config_geti(config* cfg, CFI_cdesc_t* name, i32* value);
 extern "C" void fortran_dqmc_cfg_dqmc_config_geti(config* cfg, CFI_cdesc_t* name, i32* value)
 {
-    // subroutine DQMC_Config_GetI(cfg, name, value)
-    //   !
-    //   ! Purpose
-    //   ! =======
-    //   !    This subrotine set configurations.
-    //   !
-    //   ! Arguments
-    //   ! =========
-    //   !
-    //   type(config), intent(in)  :: cfg          ! configuration
-    //   character(*), intent(in)  :: name
-    //   integer, intent(out)      :: value        !
-    //
-    //   ! ... Local variables...
-    //   integer :: id
-    //
-    //   ! ... Executable ...
-    //   id = DQMC_Find_Param(cfg, name)
-    //   if (id .gt. 0) then
-    //      if (.not.cfg%record(id)%isSet) then
-    //         call DQMC_Warning(name//" wasn't initialized,&
-    //              & used default setting.",1)
-    //         read(cfg%record(id)%defaultval,*) value
-    //      else
-    //         value = cfg%record(id)%ival
-    //      end if
-    //   else
-    //      call DQMC_Error("cannot find parameter "//name, 0)
-    //   end if
-    //
-    //
-    // end subroutine DQMC_Config_GetI
-    return detour_dqmc_cfg_dqmc_config_geti(cfg, name, value);
+    auto key = key_from_descriptor(name);
+    auto const& parameters = cfg->config_parameters->parameters();
+
+    if (auto it = parameters.find(key); it != parameters.end()) {
+        *value = MUST(cfg->config_parameters->read_integer(key_from_descriptor(name)));
+    } else {
+        auto default_value = config_default_values.at(key);
+        std::println(stderr, "Using default value '{}' for an uninitialized key '{}'.", default_value, key);
+        *value = dqmc::parse_integer(default_value).value();
+    }
 }
 
-extern "C" void detour_dqmc_cfg_dqmc_config_getr(config* cfg, CFI_cdesc_t* name, f64* value);
 extern "C" void fortran_dqmc_cfg_dqmc_config_getr(config* cfg, CFI_cdesc_t* name, f64* value)
 {
-    // subroutine DQMC_Config_GetR(cfg, name, value)
-    //   !
-    //   ! Purpose
-    //   ! =======
-    //   !    This subrotine set configurations.
-    //   !
-    //   ! Arguments
-    //   ! =========
-    //   !
-    //   type(config), intent(in)  :: cfg          ! configuration
-    //   character(*), intent(in)  :: name
-    //   real(wp), intent(out)     :: value        !
-    //
-    //   ! ... local variables
-    //   integer :: id
-    //
-    //   ! ... Executable ...
-    //
-    //   id = DQMC_Find_Param(cfg, name)
-    //   if (id .gt. 0) then
-    //      if (.not.cfg%record(id)%isSet) then
-    //         call DQMC_Warning(name//" wasn't initialized, &
-    //              & used default setting.", 1)
-    //         read(cfg%record(id)%defaultval,*) value
-    //      else
-    //         value = cfg%record(id)%rval
-    //      end if
-    //   else
-    //      call DQMC_Error("cannot find parameter "//name, 0)
-    //   end if
-    //
-    // end subroutine DQMC_Config_GetR
-    return detour_dqmc_cfg_dqmc_config_getr(cfg, name, value);
+    auto key = key_from_descriptor(name);
+    auto const& parameters = cfg->config_parameters->parameters();
+
+    if (auto it = parameters.find(key); it != parameters.end()) {
+        *value = MUST(cfg->config_parameters->read_double(key_from_descriptor(name)));
+    } else {
+        auto default_value = config_default_values.at(key);
+        std::println(stderr, "Using default value '{}' for an uninitialized key '{}'.", default_value, key);
+        *value = dqmc::parse_double(default_value).value();
+    }
 }
 
-extern "C" void detour_dqmc_cfg_dqmc_config_getpr(config* cfg, CFI_cdesc_t* name, i32* n, CFI_cdesc_t* value);
+extern "C" void binding_allocate_double_array(i64 n, CFI_cdesc_t* descriptor);
+
 extern "C" void fortran_dqmc_cfg_dqmc_config_getpr(config* cfg, CFI_cdesc_t* name, i32* n, CFI_cdesc_t* value)
 {
-    //   subroutine DQMC_Config_GetPR(cfg, name, n, value)
-    //     !
-    //     ! Purpose
-    //     ! =======
-    //     !    This subrotine set configurations.
-    //     !
-    //     ! Arguments
-    //     ! =========
-    //     !
-    //     type(config), intent(in)         :: cfg          ! configuration
-    //     character(*), intent(in)         :: name
-    //     real(wp), pointer, intent(inout) :: value(:)
-    //     integer, intent(out)             :: n
-    //
-    //     ! ... local variables
-    //     integer :: id
-    //
-    //     ! ... Executable ...
-    //     id = DQMC_Find_Param(cfg, name)
-    // !    write(*,*) "in DQMC_Config_GetPR, id=",id
-    // !    write(*,*) "in DQMC_Config_GetPR, name=",name
-    // !    write(*,*) "in DQMC_Config_GetPR, value associated?",associated(value)
-    //     if (id .gt. 0) then
-    //        if (.not.cfg%record(id)%isSet) then
-    //           call DQMC_Warning(name//" wasn't initialized,&
-    //                & used default setting.",1)
-    //           n = 1
-    //           if (associated(value)) then
-    //              deallocate(value)
-    //           end if
-    //           allocate(value(n))
-    //           read(cfg%record(id)%defaultval,*) value(1)
-    //        else
-    //           n = cfg%record(id)%ival
-    //           if (associated(value)) then
-    //              deallocate(value)
-    //           end if
-    //           allocate(value(n))
-    //           value(1:n) = cfg%record(id)%rptr(1:n)
-    //        end if
-    //     else
-    //        call DQMC_Error("cannot find parameter "//name, 0)
-    //     end if
-    //
-    //   end subroutine DQMC_Config_GetPR
-    return detour_dqmc_cfg_dqmc_config_getpr(cfg, name, n, value);
+    auto key = key_from_descriptor(name);
+    auto const& parameters = cfg->config_parameters->parameters();
+    std::vector<f64> result;
+
+    if (auto it = parameters.find(key); it != parameters.end()) {
+        result = MUST(cfg->config_parameters->read_double_array(key_from_descriptor(name)));
+    } else {
+        auto default_value = config_default_values.at(key);
+        std::println(stderr, "Using default value '{}' for an uninitialized key '{}'.", default_value, key);
+        result = dqmc::parse_double_array(default_value).value();
+    }
+
+    VERIFY(std::in_range<i32>(result.size()));
+    *n = static_cast<i32>(result.size());
+    binding_allocate_double_array(*n, value);
+    std::copy(result.begin(), result.end(), reinterpret_cast<f64*>(value->base_addr));
 }
 
-extern "C" void detour_dqmc_cfg_dqmc_config_getpi(config* cfg, CFI_cdesc_t* name, i32* n, CFI_cdesc_t* value);
-extern "C" void fortran_dqmc_cfg_dqmc_config_getpi(config* cfg, CFI_cdesc_t* name, i32* n, CFI_cdesc_t* value)
-{
-    //   subroutine DQMC_Config_GetPI(cfg, name, n, value)
-    //     !
-    //     ! Purpose
-    //     ! =======
-    //     !    This subrotine set configurations.
-    //     !
-    //     ! Arguments
-    //     ! =========
-    //     !
-    //     type(config), intent(in)        :: cfg          ! configuration
-    //     character(*), intent(in)        :: name
-    //     integer, pointer, intent(inout) :: value(:)
-    //     integer, intent(out)            :: n
-    //
-    //     ! ... local variables
-    //     integer :: id
-    //
-    //     ! ... Executable ...
-    //     id = DQMC_Find_Param(cfg, name)
-    // !    write(*,*) "in DQMC_Config_GetPI, id=",id
-    // !    write(*,*) "in DQMC_Config_GetPI, name=",name
-    // !    write(*,*) "in DQMC_Config_GetPI, value associated?",associated(value)
-    //     if (id .gt. 0) then
-    //        if (.not.cfg%record(id)%isSet) then
-    //           call DQMC_Warning(name//" wasn't initialized, &
-    //                & used default setting.", 1)
-    //           n = 1
-    //           read(cfg%record(id)%defaultval,*) value(1)
-    //        else
-    //           n = cfg%record(id)%ival
-    //           if (associated(value)) then
-    //              deallocate(value)
-    //           end if
-    //           allocate(value(n))
-    //           value(1:n) = cfg%record(id)%iptr(1:n)
-    //        end if
-    //     else
-    //        call DQMC_Error("cannot find parameter "//name, 0)
-    //     end if
-    //
-    //   end subroutine DQMC_Config_GetPI
-    return detour_dqmc_cfg_dqmc_config_getpi(cfg, name, n, value);
-}
-
-extern "C" void detour_dqmc_cfg_dqmc_config_gets(config* cfg, CFI_cdesc_t* name, CFI_cdesc_t* value);
 extern "C" void fortran_dqmc_cfg_dqmc_config_gets(config* cfg, CFI_cdesc_t* name, CFI_cdesc_t* value)
 {
-    // subroutine DQMC_Config_GetS(cfg, name, value)
-    //   !
-    //   ! Purpose
-    //   ! =======
-    //   !    This subrotine set configurations.
-    //   !
-    //   ! Arguments
-    //   ! =========
-    //   !
-    //   type(config), intent(in)  :: cfg          ! configuration
-    //   character(*), intent(in)  :: name
-    //   character(len=slen)       :: value
-    //
-    //   ! ... local variables
-    //   integer :: id
-    //
-    //   ! ... Executable ...
-    //   id = DQMC_Find_Param(cfg, name)
-    //   if (id .gt. 0) then
-    //      if (.not.cfg%record(id)%isSet) then
-    //         call DQMC_Warning(name//" wasn't initialized, &
-    //              & used default setting.", 1)
-    //      end if
-    //      value = cfg%record(id)%defaultval
-    //   else
-    //      call DQMC_Error("cannot find parameter "//name, 0)
-    //   end if
-    //
-    //
-    // end subroutine DQMC_Config_GetS
-    return detour_dqmc_cfg_dqmc_config_gets(cfg, name, value);
+    auto key = key_from_descriptor(name);
+    auto const& parameters = cfg->config_parameters->parameters();
+
+    std::string_view result;
+
+    if (auto it = parameters.find(key); it != parameters.end()) {
+        result = MUST(cfg->config_parameters->read_string(key_from_descriptor(name)));
+    } else {
+        result = config_default_values.at(key);
+        std::println(stderr, "Using default value '{}' for an uninitialized key '{}'.", result, key);
+    }
+
+    if (!std::cmp_less(result.size(), value->elem_len)) {
+        std::println(stderr, "Fortran string is too small to store the value of key '{}'.", key);
+        VERIFY_NOT_REACHED();
+    }
+
+    char* data_start = reinterpret_cast<char*>(value->base_addr);
+    std::copy(result.begin(), result.end(), data_start);
+    std::fill(data_start + result.size(), data_start + value->elem_len, ' ');
 }

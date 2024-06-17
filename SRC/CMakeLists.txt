@@ -30,6 +30,7 @@ set(SOURCES
         dqmc_util.F90
     dqmc_wspace.F90
 
+    binding.F90
     config.cpp
 
     blaslapack.c++
