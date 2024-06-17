@@ -8,7 +8,7 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED On)
 set(CMAKE_EXPORT_COMPILE_COMMANDS On)
 
-add_compile_options(-fPIE)
+add_compile_options(-g -fPIE)
 add_link_options(-fPIE)
 
 add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-fno-exceptions>)
