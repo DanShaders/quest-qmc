@@ -2,6 +2,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <print>
+#include <variant>
 
 using i8 = int8_t;
 using i16 = int16_t;
@@ -36,16 +37,74 @@ struct CFI_cdesc_t {
     CFI_dim_t dim[];
 };
 
-inline void assertion_failed(char const* expr, char const* file, int line) {
+namespace dqmc {
+
+namespace detail {
+
+template<typename... Ts>
+struct OverloadSet : Ts... {
+    using Ts::operator()...;
+};
+
+template<typename... Ts>
+OverloadSet(Ts...) -> OverloadSet<Ts...>;
+
+} // namespace detail
+
+template<typename Variant, typename... Visitors>
+decltype(auto) visit(Variant&& variant, Visitors&&... visitors)
+{
+    return std::visit(detail::OverloadSet { std::forward<Visitors>(visitors)... }, std::forward<Variant>(variant));
+}
+
+inline void assertion_failed(char const* expr, char const* file, int line)
+{
     std::println(stderr, "Assertion failed: `{}` evaluated to false at {}:{}!\n", expr, file, line);
     abort();
 }
 
-#define VERIFY(expr)                                     \
-    do {                                                 \
-        if (!(expr)) [[unlikely]] {                      \
-            assertion_failed(#expr, __FILE__, __LINE__); \
-        }                                                \
+inline std::string_view as_string_view(CFI_cdesc_t* desc)
+{
+    return { reinterpret_cast<char*>(desc->base_addr), desc->elem_len };
+}
+
+inline char ascii_to_lower(char c)
+{
+    if ('A' <= c && c <= 'Z') {
+        return c - 'A' + 'a';
+    }
+    return c;
+}
+
+struct Empty { };
+
+} // namespace dqmc
+
+#define VERIFY(expr)                                             \
+    do {                                                         \
+        if (!(expr)) [[unlikely]] {                              \
+            ::dqmc::assertion_failed(#expr, __FILE__, __LINE__); \
+        }                                                        \
     } while (false)
 
 #define VERIFY_NOT_REACHED() VERIFY(false)
+
+#define TRY(expr)                                                 \
+    ({                                                            \
+        auto&& _value = (expr);                                   \
+        if (!_value.has_value())                                  \
+            return std::unexpected { std::move(_value).error() }; \
+        std::move(_value).value();                                \
+    })
+
+#define MUST(expr)                                     \
+    ({                                                 \
+        auto&& _value = (expr);                        \
+        if (!_value.has_value()) [[unlikely]] {        \
+            std::println("Error: {}", _value.error()); \
+            VERIFY_NOT_REACHED();                      \
+        }                                              \
+        std::move(_value).value();                     \
+    })
+
+using namespace std::literals;

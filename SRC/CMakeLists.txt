@@ -30,6 +30,8 @@ set(SOURCES
         dqmc_util.F90
     dqmc_wspace.F90
 
+    config.cpp
+
     blaslapack.c++
     computeg.c++
     kernel_cpu.c++
@@ -38,5 +40,5 @@ set(SOURCES
 
 add_library(dqmc STATIC ${SOURCES})
 target_compile_options(dqmc PRIVATE $<$<COMPILE_LANGUAGE:Fortran>:-Wno-c-binding-type>)
-target_link_libraries(dqmc INTERFACE OpenBLAS::OpenBLAS)
+target_link_libraries(dqmc PUBLIC OpenBLAS::OpenBLAS FastFloat::fast_float)
 target_include_directories(dqmc INTERFACE ${CMAKE_CURRENT_BINARY_DIR})
