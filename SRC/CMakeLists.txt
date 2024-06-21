@@ -33,6 +33,13 @@ set(SOURCES
     binding.F90
     config.cpp
 
+    common/Error.cpp
+    common/Filesystem.cpp
+    parser/DiagnosticEngine.cpp
+    parser/FreeformGeometryParser.cpp
+    parser/Lexer.cpp
+    parser/LineLexer.cpp
+
     blaslapack.c++
     computeg.c++
     kernel_cpu.c++
