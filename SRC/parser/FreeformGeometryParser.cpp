@@ -44,7 +44,8 @@ void FreeformGeometryParser::split_into_sections()
         auto current_section_data = contents.substr(section_start, section_end - section_start);
         Lexer current_section { m_file, current_section_data, past_end_token, m_diag };
         if (section_header.has_value()) {
-            m_sections.emplace(*section_header, std::move(current_section));
+            auto location = read_headers.at(*section_header);
+            m_sections.emplace(*section_header, std::pair { std::move(current_section), location });
         } else {
             parse_preamble(current_section);
         }
@@ -101,7 +102,7 @@ std::expected<void, Empty> FreeformGeometryParser::parse_number_of_dimensions()
         return Empty::error();
     }
 
-    auto& lexer = m_sections.at(Section::NumberOfDimensions);
+    auto& [lexer, _] = m_sections.at(Section::NumberOfDimensions);
     auto maybe_line = lexer.nonempty_line();
     if (!maybe_line.has_value()) {
         m_diag.error({ m_file, maybe_line.error() },
@@ -130,7 +131,9 @@ std::expected<void, Empty> FreeformGeometryParser::parse_lattice_basis()
         return Empty::error();
     }
 
-    auto& lexer = m_sections.at(Section::LatticeBasis);
+    auto& [lexer, location] = m_sections.at(Section::LatticeBasis);
+    m_geometry.lattice_basis_location = location;
+
     for (size_t i = 0; i < m_geometry.dimensions; ++i) {
         auto maybe_line = lexer.nonempty_line();
         if (!maybe_line.has_value()) {
@@ -160,7 +163,9 @@ std::expected<void, Empty> FreeformGeometryParser::parse_supercell_basis()
         return Empty::error();
     }
 
-    auto& lexer = m_sections.at(Section::SupercellBasis);
+    auto& [lexer, location] = m_sections.at(Section::SupercellBasis);
+    m_geometry.supercell_basis_location = location;
+
     for (size_t i = 0; i < m_geometry.dimensions; ++i) {
         auto maybe_line = lexer.nonempty_line();
         if (!maybe_line.has_value()) {
@@ -190,7 +195,7 @@ std::expected<void, Empty> FreeformGeometryParser::parse_primitive_cell_sites()
         return Empty::error();
     }
 
-    auto& lexer = m_sections.at(Section::PrimitiveCellSites);
+    auto& [lexer, _] = m_sections.at(Section::PrimitiveCellSites);
     for (int i = 0;; ++i) {
         auto maybe_line = lexer.nonempty_line();
         if (!maybe_line.has_value()) {

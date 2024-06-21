@@ -11,16 +11,21 @@ struct ParsedFreeformGeometry {
     };
 
     int dimensions = 0;
+
     f64 lattice_basis[3][3] = {
         { 1, 0, 0 },
         { 0, 1, 0 },
         { 0, 0, 1 },
     };
+    SourceRange lattice_basis_location;
+
     int supercell_basis[3][3] = {
         { 1, 0, 0 },
         { 0, 1, 0 },
         { 0, 0, 1 },
     };
+    SourceRange supercell_basis_location;
+
     std::vector<PrimitiveCellSite> primitive_cell_sites;
 };
 
@@ -65,7 +70,7 @@ private:
     std::expected<void, Empty> parse_primitive_cell_sites();
 
     std::shared_ptr<FileView> m_file;
-    std::map<Section, Lexer> m_sections;
+    std::map<Section, std::pair<Lexer, SourceRange>> m_sections;
     ParsedFreeformGeometry m_geometry;
     DiagnosticEngine& m_diag;
 };
