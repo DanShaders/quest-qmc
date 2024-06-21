@@ -34,6 +34,20 @@ public:
         });
     }
 
+    ErrorOr<void> with(std::ostream& output, auto&& func)
+    {
+        m_has_errors = false;
+        m_messages.clear();
+        std::expected<void, Empty> result = func();
+        format_diagnostics(output);
+        VERIFY(m_has_errors != result.has_value());
+        if (result.has_value()) {
+            return {};
+        } else {
+            return Error::formatted("Errors have been encountered");
+        }
+    }
+
     void format_diagnostics(std::ostream& output);
 
 private:

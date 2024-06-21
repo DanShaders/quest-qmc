@@ -33,7 +33,7 @@ class FreeformGeometryParser {
 public:
     FreeformGeometryParser(std::shared_ptr<FileView> file, DiagnosticEngine& diag);
 
-    std::optional<ParsedFreeformGeometry> parse();
+    std::expected<ParsedFreeformGeometry, Empty> parse();
 
 private:
     enum class Section {

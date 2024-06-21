@@ -11,13 +11,13 @@ FreeformGeometryParser::FreeformGeometryParser(std::shared_ptr<FileView> file, D
 {
 }
 
-std::optional<ParsedFreeformGeometry> FreeformGeometryParser::parse()
+std::expected<ParsedFreeformGeometry, Empty> FreeformGeometryParser::parse()
 {
     split_into_sections();
 
     (void)parse_number_of_dimensions();
     if (!m_geometry.dimensions) {
-        return std::nullopt;
+        return Empty::error();
     }
     (void)parse_lattice_basis();
     (void)parse_supercell_basis();
