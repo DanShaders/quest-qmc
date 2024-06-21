@@ -23,6 +23,10 @@ std::expected<ParsedFreeformGeometry, Empty> FreeformGeometryParser::parse()
     (void)parse_supercell_basis();
     (void)parse_primitive_cell_sites();
 
+    if (m_diag.has_errors()) {
+        return Empty::error();
+    }
+
     return m_geometry;
 }
 

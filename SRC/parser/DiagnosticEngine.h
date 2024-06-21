@@ -50,6 +50,8 @@ public:
 
     void format_diagnostics(std::ostream& output);
 
+    bool has_errors() const { return m_has_errors; }
+
 private:
     enum class Severity {
         Error,
