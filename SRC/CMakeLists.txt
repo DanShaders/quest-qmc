@@ -39,6 +39,7 @@ set(SOURCES
     parser/FreeformGeometryParser.cpp
     parser/Lexer.cpp
     parser/LineLexer.cpp
+    sema/FreeformGeometry.cpp
 
     blaslapack.c++
     computeg.c++
@@ -48,5 +49,5 @@ set(SOURCES
 
 add_library(dqmc STATIC ${SOURCES})
 target_compile_options(dqmc PRIVATE $<$<COMPILE_LANGUAGE:Fortran>:-Wno-c-binding-type>)
-target_link_libraries(dqmc PUBLIC OpenBLAS::OpenBLAS FastFloat::fast_float)
+target_link_libraries(dqmc PUBLIC OpenBLAS::OpenBLAS FastFloat::fast_float Eigen3::Eigen)
 target_include_directories(dqmc INTERFACE ${CMAKE_CURRENT_BINARY_DIR})
