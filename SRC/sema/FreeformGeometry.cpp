@@ -123,7 +123,7 @@ std::expected<void, Empty> FreeformGeometry::initialize(parser::DiagnosticEngine
             f64 coefficient = geometry.lattice_basis[i][j];
             m_lattice_basis(j, i) = coefficient;
             if (i >= dimensions() || j >= dimensions()) {
-                VERIFY((i == j && coefficient == 1) || (i != j && coefficient == 0));
+                VERIFY((i == j && coefficient == 1e3) || (i != j && coefficient == 0));
             }
         }
     }

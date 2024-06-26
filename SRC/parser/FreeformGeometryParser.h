@@ -12,10 +12,12 @@ struct ParsedFreeformGeometry {
 
     int dimensions = 0;
 
+    // TODO: Check if we can just use 1 for basis and fake 1e3 in
+    //       FreeformGeometry::legacy_compatible_format_into.
     f64 lattice_basis[3][3] = {
-        { 1, 0, 0 },
-        { 0, 1, 0 },
-        { 0, 0, 1 },
+        { 1e3, 0, 0 },
+        { 0, 1e3, 0 },
+        { 0, 0, 1e3 },
     };
     SourceRange lattice_basis_location;
 
