@@ -35,6 +35,8 @@ public:
 
     static std::expected<FreeformGeometry, Empty> create(parser::DiagnosticEngine& diag, parser::ParsedFreeformGeometry const& geometry);
 
+    void legacy_compatible_format_into(std::ostream& stream) const;
+
     int dimensions() const { return m_dimensions; }
     Matrix3d const& lattice_basis() const& { return m_lattice_basis; }
     Matrix3d const& supercell_cartesian_basis() const& { return m_supercell_cartesian_basis; }

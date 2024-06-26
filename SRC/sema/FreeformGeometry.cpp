@@ -111,6 +111,60 @@ std::expected<FreeformGeometry, Empty> FreeformGeometry::create(parser::Diagnost
     return result;
 }
 
+void FreeformGeometry::legacy_compatible_format_into(std::ostream& stream) const
+{
+    std::print(stream, " ================================================================\n"
+                       " Basic real space geometry info\n"
+                       "\n"
+                       " Crystal atomic basis\n");
+    for (int i = 0; i < primitive_cell_sites_count(); ++i) {
+        auto const& coords = primitive_cell_sites()[i].fractionary_position();
+        std::println(stream, "{:3}{:14.7f}{:14.7f}{:14.7f}", i, coords[0], coords[1], coords[2]);
+    }
+
+    std::print(stream, "\n"
+                       " Basis cell vectors\n");
+    for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j) {
+            std::print(stream, "{:14.7f}", lattice_basis()(j, i));
+        }
+        std::print(stream, "\n");
+    }
+
+    std::print(stream, "\n"
+                       "\n"
+                       " Supercell vectors (fractionary unit)\n");
+    for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j) {
+            std::print(stream, "{:5}", supercell_fractionary_basis()(j, i));
+        }
+        std::print(stream, "\n");
+    }
+
+    std::print(stream, "\n"
+                       " Super-Lattice vectors (cartesian)\n");
+    for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j) {
+            std::print(stream, "{:14.7f}", supercell_cartesian_basis()(j, i));
+        }
+        std::print(stream, "\n");
+    }
+
+    std::print(stream, "\n"
+                       " ================================================================\n"
+                       " Real space lattice\n"
+                       "\n");
+    std::print(stream, " Number of orbitals in primitive cell: {:12}\n", primitive_cell_sites_count());
+    std::print(stream, " Total number of orbitals:             {:12}\n", sites_count());
+    std::print(stream, " index  label   type       X           Y         Z   \n");
+    for (int i = 0; i < sites_count(); ++i) {
+        auto const& site = sites()[i];
+        auto const& coords = site.cartesian_position();
+        std::print(stream, "{:3} {:3} {:3}{:14.5f}{:14.5f}{:14.5f}\n",
+            i, site.label(), i % primitive_cell_sites_count(), coords[0], coords[1], coords[2]);
+    }
+}
+
 std::expected<void, Empty> FreeformGeometry::initialize(parser::DiagnosticEngine& diag, parser::ParsedFreeformGeometry const& geometry)
 {
     // dimensions
