@@ -43,13 +43,15 @@ public:
     int primitive_cells_in_supercell_count() const { return m_primitive_cells_in_supercell.size(); }
     std::vector<Vector3i> const& primitive_cells_in_supercell() const& { return m_primitive_cells_in_supercell; }
 
-    int sites_count() const { return m_sites_count; }
-
     int primitive_cell_sites_count() const { return m_primitive_cell_sites.size(); }
     std::vector<Site> const& primitive_cell_sites() const { return m_primitive_cell_sites; }
 
+    int sites_count() const { return m_sites.size(); }
+    std::vector<Site> const& sites() const { return m_sites; }
+
 private:
     FreeformGeometry() = default;
+
     std::expected<void, Empty> initialize(parser::DiagnosticEngine& diag, parser::ParsedFreeformGeometry const& geometry);
 
     int m_dimensions = 0;
@@ -65,8 +67,7 @@ private:
 
     std::vector<Site> m_primitive_cell_sites;
 
-    // Number of sites in a supercell
-    int m_sites_count = 0;
+    std::vector<Site> m_sites;
 
     // (*) -- vectors are columns of the matrix
 };

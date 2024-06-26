@@ -80,6 +80,25 @@ std::vector<Vector3i> compute_primitive_cells_in_supercell(FreeformGeometry cons
     return result;
 }
 
+std::vector<FreeformGeometry::Site> compute_sites(FreeformGeometry const& geometry)
+{
+    using Site = FreeformGeometry::Site;
+
+    auto translate = [&](Site const& site, Vector3i const& translation) {
+        Vector3d fractionary_coordinates = site.fractionary_position() + translation.cast<f64>();
+        Vector3d cartesian_coordinates = geometry.lattice_basis() * fractionary_coordinates;
+        return Site { site.label(), cartesian_coordinates, fractionary_coordinates };
+    };
+
+    std::vector<Site> result;
+    for (Vector3i const& cell : geometry.primitive_cells_in_supercell()) {
+        for (Site const& site : geometry.primitive_cell_sites()) {
+            result.push_back(translate(site, cell));
+        }
+    }
+    return result;
+}
+
 } // namespace
 
 std::expected<FreeformGeometry, Empty> FreeformGeometry::create(parser::DiagnosticEngine& diag, parser::ParsedFreeformGeometry const& geometry)
@@ -145,8 +164,8 @@ std::expected<void, Empty> FreeformGeometry::initialize(parser::DiagnosticEngine
             lattice_basis_inverse * cartesian_position);
     }
 
-    // sites_count
-    m_sites_count = primitive_cell_sites_count() * geometry.primitive_cell_sites.size();
+    // sites
+    m_sites = compute_sites(*this);
 
     return {};
 }
