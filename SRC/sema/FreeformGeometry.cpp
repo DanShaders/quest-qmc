@@ -8,13 +8,6 @@ namespace dqmc::sema {
 
 namespace {
 
-struct Comparator {
-    bool operator()(Vector3i const& a, Vector3i const& b) const
-    {
-        return std::tie(a[0], a[1], a[2]) < std::tie(b[0], b[1], b[2]);
-    }
-};
-
 std::vector<Vector3i> compute_primitive_cells_in_supercell(FreeformGeometry const& geometry)
 {
     // Compute the number of points with integer fractionary coordinates in a supercell. These will
@@ -38,7 +31,12 @@ std::vector<Vector3i> compute_primitive_cells_in_supercell(FreeformGeometry cons
     }
 
     std::vector<Vector3i> result = { { 0, 0, 0 } };
-    std::set<Vector3i, Comparator> seen_vertices;
+    std::set<
+        Vector3i,
+        decltype([](Vector3i const& a, Vector3i const& b) {
+            return std::tie(a[0], a[1], a[2]) < std::tie(b[0], b[1], b[2]);
+        })>
+        seen_vertices;
     seen_vertices.emplace(0, 0, 0);
 
     // To find points themselves, we want to do BFS on the graph where vertices are points with
@@ -76,6 +74,11 @@ std::vector<Vector3i> compute_primitive_cells_in_supercell(FreeformGeometry cons
     for (auto& primitive_cell : result) {
         primitive_cell = geometry.supercell_fractionary_basis() * primitive_cell / det;
     }
+
+    // Order primitive cells in the same way as in the legacy code.
+    std::ranges::sort(result, [](Vector3i const& a, Vector3i const& b) {
+        return std::tie(a[2], a[1], a[0]) < std::tie(b[2], b[1], b[0]);
+    });
 
     return result;
 }
