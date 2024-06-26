@@ -1,4 +1,5 @@
 #include <Eigen/LU>
+#include <set>
 
 #include "SRC/parser/FreeformGeometryParser.h"
 #include "SRC/sema/FreeformGeometry.h"
@@ -37,8 +38,8 @@ std::vector<Vector3i> compute_primitive_cells_in_supercell(FreeformGeometry cons
     }
 
     std::vector<Vector3i> result = { { 0, 0, 0 } };
-    std::map<Vector3i, int, Comparator> indexes;
-    indexes[{ 0, 0, 0 }] = 0;
+    std::set<Vector3i, Comparator> seen_vertices;
+    seen_vertices.emplace(0, 0, 0);
 
     // To find points themselves, we want to do BFS on the graph where vertices are points with
     // integer fractionary coordinates and edges connect neighboring (distance = 1) points. This
@@ -62,8 +63,8 @@ std::vector<Vector3i> compute_primitive_cells_in_supercell(FreeformGeometry cons
                     }
                 }
 
-                if (indexes.find(neighbor) == indexes.end()) {
-                    indexes[neighbor] = result.size();
+                if (!seen_vertices.contains(neighbor)) {
+                    seen_vertices.insert(neighbor);
                     result.push_back(neighbor);
                 }
             }
