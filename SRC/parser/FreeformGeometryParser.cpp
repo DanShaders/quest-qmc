@@ -218,13 +218,6 @@ std::expected<void, Empty> FreeformGeometryParser::parse_primitive_cell_sites()
             auto name = std::format("{} site displacement {}-component", label, component_names[i]);
             auto [value, token] = TRY(maybe_line->read_named_double(name));
             site.displacement[i] = value;
-            if (i >= m_geometry.dimensions) {
-                if (value != 0) {
-                    m_diag.error({ m_file, token },
-                        "site lies outside of {}-dimensional space of the lattice", m_geometry.dimensions);
-                    return Empty::error();
-                }
-            }
         }
         m_geometry.primitive_cell_sites.emplace_back(std::move(site));
 
