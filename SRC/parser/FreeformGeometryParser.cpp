@@ -22,6 +22,7 @@ std::expected<ParsedFreeformGeometry, Empty> FreeformGeometryParser::parse()
     (void)parse_lattice_basis();
     (void)parse_supercell_basis();
     (void)parse_primitive_cell_sites();
+    (void)parse_hamiltonian();
 
     if (m_diag.has_errors()) {
         return Empty::error();
@@ -222,6 +223,76 @@ std::expected<void, Empty> FreeformGeometryParser::parse_primitive_cell_sites()
         m_geometry.primitive_cell_sites.emplace_back(std::move(site));
 
         TRY(maybe_line->expect_eof());
+    }
+    return {};
+}
+
+std::expected<void, Empty> FreeformGeometryParser::parse_hamiltonian()
+{
+    if (!m_sections.contains(Section::Hamiltonian)) {
+        m_diag.error({ m_file },
+            "missing required 'HAMILT' section");
+        return Empty::error();
+    }
+
+    auto& [lexer, _] = m_sections.at(Section::Hamiltonian);
+    while (true) {
+        auto line = lexer.nonempty_line();
+        if (!line.has_value()) {
+            break;
+        }
+
+        auto [from, from_token] = TRY(line->read_named_integer("site index"));
+        auto [to, to_token] = TRY(line->read_named_integer("site index"));
+
+        for (auto [index, token] : { std::tuple { from, from_token }, { to, to_token } }) {
+            if (index < 0 || index > m_geometry.primitive_cell_sites.size()) {
+                m_diag.error({ m_file, token },
+                    "site index must be in the range [0, {})", m_geometry.primitive_cell_sites.size());
+                return Empty::error();
+            }
+        }
+
+        f64 delta[3] {};
+        std::string_view delta_token;
+        for (size_t i = 0; i < 3; ++i) {
+            auto [value, token] = TRY(line->read_named_double(std::format("site coordinate delta {}-component", component_names[i])));
+            delta[i] = value;
+            delta_token = lexer.combine(delta_token, token);
+        }
+
+        bool is_interaction = from == to && delta[0] == 0 && delta[1] == 0 && delta[2] == 0;
+
+        if (is_interaction) {
+            auto [mu_up, _1] = TRY(line->read_named_double("on-site chemical potential shift for spin-up electron"));
+            auto [mu_down, _2] = TRY(line->read_named_double("on-site chemical potential shift for spin-down electron"));
+            auto [u, _3] = TRY(line->read_named_double("on-site interaction energy"));
+
+            m_geometry.hamiltonian.emplace_back(ParsedFreeformGeometry::OnSiteInteraction {
+                .site = from,
+                .mu_up_offset = mu_up,
+                .mu_down_offset = mu_down,
+                .u = u,
+            });
+        } else {
+            auto [t_up, _1] = TRY(line->read_named_double("hopping integral for spin-up electron"));
+            auto [t_down, _2] = TRY(line->read_named_double("hopping integral for spin-down electron"));
+            auto [u, u_token] = TRY(line->read_named_double("on-site interaction energy"));
+
+            if (u != 0) {
+                m_diag.error({ m_file, u_token },
+                    "value of on-site interaction energy parameter must be zero for hopping terms");
+                return Empty::error();
+            }
+
+            m_geometry.hamiltonian.emplace_back(ParsedFreeformGeometry::Hopping {
+                .from = from,
+                .to = to,
+                .coordinate_delta = { delta[0], delta[1], delta[2] },
+                .t_up = t_up,
+                .t_down = t_down,
+            });
+        }
     }
     return {};
 }

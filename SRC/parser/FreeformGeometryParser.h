@@ -1,5 +1,7 @@
 #pragma once
 
+#include <variant>
+
 #include "SRC/parser/Lexer.h"
 
 namespace dqmc::parser {
@@ -7,7 +9,22 @@ namespace dqmc::parser {
 struct ParsedFreeformGeometry {
     struct PrimitiveCellSite {
         std::string label;
-        f64 displacement[3] = { 0, 0, 0 };
+        f64 displacement[3] = {};
+    };
+
+    struct Hopping {
+        int from;
+        int to;
+        f64 coordinate_delta[3];
+        f64 t_up;
+        f64 t_down;
+    };
+
+    struct OnSiteInteraction {
+        int site;
+        f64 mu_up_offset;
+        f64 mu_down_offset;
+        f64 u;
     };
 
     int dimensions = 0;
@@ -29,6 +46,8 @@ struct ParsedFreeformGeometry {
     SourceRange supercell_basis_location;
 
     std::vector<PrimitiveCellSite> primitive_cell_sites;
+
+    std::vector<std::variant<Hopping, OnSiteInteraction>> hamiltonian;
 };
 
 class FreeformGeometryParser {
@@ -43,7 +62,7 @@ private:
         LatticeBasis,
         SupercellBasis,
         PrimitiveCellSites,
-        HAMILT,
+        Hamiltonian,
         SYMM,
         PHASE,
         BONDS,
@@ -70,6 +89,7 @@ private:
     std::expected<void, Empty> parse_lattice_basis();
     std::expected<void, Empty> parse_supercell_basis();
     std::expected<void, Empty> parse_primitive_cell_sites();
+    std::expected<void, Empty> parse_hamiltonian();
 
     std::shared_ptr<FileView> m_file;
     std::map<Section, std::pair<Lexer, SourceRange>> m_sections;
