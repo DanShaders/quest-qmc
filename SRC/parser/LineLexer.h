@@ -20,9 +20,9 @@ public:
 
     bool skip_whitespace();
 
-    std::expected<Token<int>, Empty> read_named_integer(std::string_view name);
-    std::expected<Token<f64>, Empty> read_named_double(std::string_view name);
-    std::expected<Token<std::string>, Empty> read_named_string(std::string_view name);
+    std::expected<Token<int>, Empty> read_integer(std::string_view name);
+    std::expected<Token<f64>, Empty> read_double(std::string_view name);
+    std::expected<Token<std::string>, Empty> read_string(std::string_view name);
 
     std::expected<void, Empty> expect_eof();
 

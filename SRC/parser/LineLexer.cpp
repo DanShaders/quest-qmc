@@ -28,7 +28,7 @@ bool LineLexer::skip_whitespace()
     return is_valid_token_character(m_data[m_position]);
 }
 
-auto LineLexer::read_named_integer(std::string_view name) -> std::expected<Token<int>, Empty>
+auto LineLexer::read_integer(std::string_view name) -> std::expected<Token<int>, Empty>
 {
     if (!skip_whitespace()) {
         m_diag.error(range_for_current_position(),
@@ -57,7 +57,7 @@ auto LineLexer::read_named_integer(std::string_view name) -> std::expected<Token
     return Token { value, token };
 }
 
-auto LineLexer::read_named_double(std::string_view name) -> std::expected<Token<f64>, Empty>
+auto LineLexer::read_double(std::string_view name) -> std::expected<Token<f64>, Empty>
 {
     if (!skip_whitespace()) {
         m_diag.error(range_for_current_position(),
@@ -98,7 +98,7 @@ auto LineLexer::read_named_double(std::string_view name) -> std::expected<Token<
     return Token { value, token };
 }
 
-auto LineLexer::read_named_string(std::string_view name) -> std::expected<Token<std::string>, Empty>
+auto LineLexer::read_string(std::string_view name) -> std::expected<Token<std::string>, Empty>
 {
     if (!skip_whitespace()) {
         m_diag.error(range_for_current_position(),

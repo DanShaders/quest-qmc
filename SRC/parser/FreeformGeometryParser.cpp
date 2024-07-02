@@ -108,14 +108,14 @@ std::expected<void, Empty> FreeformGeometryParser::parse_number_of_dimensions()
     }
 
     auto& [lexer, _] = m_sections.at(Section::NumberOfDimensions);
-    auto maybe_line = lexer.nonempty_line();
-    if (!maybe_line.has_value()) {
-        m_diag.error({ m_file, maybe_line.error() },
+    auto line = lexer.nonempty_line();
+    if (!line.has_value()) {
+        m_diag.error({ m_file, line.error() },
             "expected number of dimensions (an integer value) but found section end");
         return Empty::error();
     }
 
-    auto [number_of_dimensions, token] = TRY(maybe_line->read_named_integer("number of dimensions"));
+    auto [number_of_dimensions, token] = TRY(line->read_integer("number of dimensions"));
     if (number_of_dimensions < 1 || number_of_dimensions > 3) {
         m_diag.error({ m_file, token },
             "number of dimensions must be 1, 2, or 3");
@@ -123,7 +123,7 @@ std::expected<void, Empty> FreeformGeometryParser::parse_number_of_dimensions()
     }
     m_geometry.dimensions = number_of_dimensions;
 
-    TRY(maybe_line->expect_eof());
+    TRY(line->expect_eof());
     TRY(lexer.expect_section_end());
     return {};
 }
@@ -140,20 +140,20 @@ std::expected<void, Empty> FreeformGeometryParser::parse_lattice_basis()
     m_geometry.lattice_basis_location = location;
 
     for (size_t i = 0; i < m_geometry.dimensions; ++i) {
-        auto maybe_line = lexer.nonempty_line();
-        if (!maybe_line.has_value()) {
-            m_diag.error({ m_file, maybe_line.error() },
+        auto line = lexer.nonempty_line();
+        if (!line.has_value()) {
+            m_diag.error({ m_file, line.error() },
                 "expected {} lattice basis vector but found section end", ordinal_names[i]);
             return Empty::error();
         }
 
         for (size_t j = 0; j < m_geometry.dimensions; ++j) {
             auto component_name = std::format("{} lattice basis vector {}-component", ordinal_names[i], component_names[j]);
-            auto [value, token] = TRY(maybe_line->read_named_double(component_name));
+            auto [value, token] = TRY(line->read_double(component_name));
             m_geometry.lattice_basis[i][j] = value;
         }
 
-        TRY(maybe_line->expect_eof());
+        TRY(line->expect_eof());
     }
 
     TRY(lexer.expect_section_end());
@@ -172,20 +172,20 @@ std::expected<void, Empty> FreeformGeometryParser::parse_supercell_basis()
     m_geometry.supercell_basis_location = location;
 
     for (size_t i = 0; i < m_geometry.dimensions; ++i) {
-        auto maybe_line = lexer.nonempty_line();
-        if (!maybe_line.has_value()) {
-            m_diag.error({ m_file, maybe_line.error() },
+        auto line = lexer.nonempty_line();
+        if (!line.has_value()) {
+            m_diag.error({ m_file, line.error() },
                 "expected {} supercell basis vector but found section end", ordinal_names[i]);
             return Empty::error();
         }
 
         for (size_t j = 0; j < m_geometry.dimensions; ++j) {
             auto component_name = std::format("{} supercell basis vector {} component", ordinal_names[i], ordinal_names[j]);
-            auto [value, token] = TRY(maybe_line->read_named_integer(component_name));
+            auto [value, token] = TRY(line->read_integer(component_name));
             m_geometry.supercell_basis[i][j] = value;
         }
 
-        TRY(maybe_line->expect_eof());
+        TRY(line->expect_eof());
     }
 
     TRY(lexer.expect_section_end());
@@ -202,27 +202,27 @@ std::expected<void, Empty> FreeformGeometryParser::parse_primitive_cell_sites()
 
     auto& [lexer, _] = m_sections.at(Section::PrimitiveCellSites);
     for (int i = 0;; ++i) {
-        auto maybe_line = lexer.nonempty_line();
-        if (!maybe_line.has_value()) {
+        auto line = lexer.nonempty_line();
+        if (!line.has_value()) {
             if (i == 0) {
-                m_diag.error({ m_file, maybe_line.error() },
+                m_diag.error({ m_file, line.error() },
                     "at least 1 primitive cell site is required");
             }
             break;
         }
 
-        auto [label, label_token] = TRY(maybe_line->read_named_string("primitive cell site label"));
+        auto [label, label_token] = TRY(line->read_string("primitive cell site label"));
         ParsedFreeformGeometry::PrimitiveCellSite site {
             .label = label,
         };
         for (size_t i = 0; i < 3; ++i) {
             auto name = std::format("{} site displacement {}-component", label, component_names[i]);
-            auto [value, token] = TRY(maybe_line->read_named_double(name));
+            auto [value, token] = TRY(line->read_double(name));
             site.displacement[i] = value;
         }
         m_geometry.primitive_cell_sites.emplace_back(std::move(site));
 
-        TRY(maybe_line->expect_eof());
+        TRY(line->expect_eof());
     }
     return {};
 }
@@ -242,8 +242,8 @@ std::expected<void, Empty> FreeformGeometryParser::parse_hamiltonian()
             break;
         }
 
-        auto [from, from_token] = TRY(line->read_named_integer("site index"));
-        auto [to, to_token] = TRY(line->read_named_integer("site index"));
+        auto [from, from_token] = TRY(line->read_integer("site index"));
+        auto [to, to_token] = TRY(line->read_integer("site index"));
 
         for (auto [index, token] : { std::tuple { from, from_token }, { to, to_token } }) {
             if (index < 0 || index > m_geometry.primitive_cell_sites.size()) {
@@ -256,7 +256,7 @@ std::expected<void, Empty> FreeformGeometryParser::parse_hamiltonian()
         f64 delta[3] {};
         std::string_view delta_token;
         for (size_t i = 0; i < 3; ++i) {
-            auto [value, token] = TRY(line->read_named_double(std::format("site coordinate delta {}-component", component_names[i])));
+            auto [value, token] = TRY(line->read_double(std::format("site coordinate delta {}-component", component_names[i])));
             delta[i] = value;
             delta_token = lexer.combine(delta_token, token);
         }
@@ -264,9 +264,9 @@ std::expected<void, Empty> FreeformGeometryParser::parse_hamiltonian()
         bool is_interaction = from == to && delta[0] == 0 && delta[1] == 0 && delta[2] == 0;
 
         if (is_interaction) {
-            auto [mu_up, _1] = TRY(line->read_named_double("on-site chemical potential shift for spin-up electron"));
-            auto [mu_down, _2] = TRY(line->read_named_double("on-site chemical potential shift for spin-down electron"));
-            auto [u, _3] = TRY(line->read_named_double("on-site interaction energy"));
+            auto [mu_up, _1] = TRY(line->read_double("on-site chemical potential shift for spin-up electron"));
+            auto [mu_down, _2] = TRY(line->read_double("on-site chemical potential shift for spin-down electron"));
+            auto [u, _3] = TRY(line->read_double("on-site interaction energy"));
 
             m_geometry.hamiltonian.emplace_back(ParsedFreeformGeometry::OnSiteInteraction {
                 .site = from,
@@ -275,9 +275,9 @@ std::expected<void, Empty> FreeformGeometryParser::parse_hamiltonian()
                 .u = u,
             });
         } else {
-            auto [t_up, _1] = TRY(line->read_named_double("hopping integral for spin-up electron"));
-            auto [t_down, _2] = TRY(line->read_named_double("hopping integral for spin-down electron"));
-            auto [u, u_token] = TRY(line->read_named_double("on-site interaction energy"));
+            auto [t_up, _1] = TRY(line->read_double("hopping integral for spin-up electron"));
+            auto [t_down, _2] = TRY(line->read_double("hopping integral for spin-down electron"));
+            auto [u, u_token] = TRY(line->read_double("on-site interaction energy"));
 
             if (u != 0) {
                 m_diag.error({ m_file, u_token },
