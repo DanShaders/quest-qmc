@@ -13,8 +13,6 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS On)
 add_compile_options(-g -fPIE)
 add_link_options(-fPIE)
 
-add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-fno-exceptions>)
-
 if (DQMC_USE_LIBCXX)
     add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-stdlib=libc++>)
     add_link_options(-stdlib=libc++)
