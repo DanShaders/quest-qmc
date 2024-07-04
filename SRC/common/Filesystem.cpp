@@ -59,10 +59,6 @@ ErrorOr<std::shared_ptr<FileView>> Filesystem::read(std::filesystem::path const&
         return Error::from_errno_with_context(saved_errno, "Failed to read '{}'", path.string());
     }
 
-    if (!data.size() || data.back() != '\n') {
-        data.push_back('\n');
-    }
-
     return std::make_shared<File>(path.string(), std::move(data));
 }
 

@@ -9,48 +9,45 @@ using namespace std::literals;
 
 static bool is_space(char c)
 {
-    return c == ' ' || c == '\n' || c == '\t';
+    return c == ' ' || c == '\t';
 }
 
-LineLexer::LineLexer(std::shared_ptr<FileView> file, std::string_view data, DiagnosticEngine& diag)
-    : m_file(std::move(file))
-    , m_data(data)
+LineLexer::LineLexer(std::string_view data, SourceRange end_of_line, DiagnosticEngine& diag)
+    : m_data(data)
+    , m_end_of_line(end_of_line)
     , m_diag(diag)
 {
-    VERIFY(data.back() == '\n');
 }
 
 bool LineLexer::skip_whitespace()
 {
-    while (m_position < m_data.size() - 1 && is_space(m_data[m_position])) {
+    while (m_position < m_data.size() && is_space(m_data[m_position])) {
         ++m_position;
     }
-    return is_valid_token_character(m_data[m_position]);
+    return m_position != m_data.size() && m_data[m_position] != '#';
 }
 
 auto LineLexer::read_integer(std::string_view name) -> std::expected<Token<int>, Empty>
 {
     if (!skip_whitespace()) {
-        m_diag.error(range_for_current_position(),
-            "expected {} (an integer value) but found line end", name);
+        m_diag.error(range_for_current_position(), "expected {} (an integer value)",
+            name);
         return Empty::error();
     }
 
     int value = 0;
-    auto [ptr, ec] = std::from_chars(m_data.data() + m_position, m_data.data() + m_data.size(), value);
     auto token = maybe_read_token().value();
+    auto [value_end, ec] = std::from_chars(token.begin(), token.end(), value);
 
-    if (is_valid_token_character(*ptr)) {
-        m_diag.error({ m_file, token },
-            "expected {} (an integer value) but found '{}'", name, token);
+    if (value_end != token.end()) {
+        m_diag.error(token, "expected {} (an integer value) but found '{}'",
+            name, token);
         return Empty::error();
     }
-    size_t new_position = ptr - m_data.data();
-    VERIFY(new_position == m_position);
 
     if (ec == std::errc::result_out_of_range) {
-        m_diag.error({ m_file, token },
-            "value {} for {} overflows 32-bit integral variable", token, name);
+        m_diag.error(token, "value {} for {} overflows 32-bit integral variable",
+            token, name);
         return Empty::error();
     }
 
@@ -60,38 +57,35 @@ auto LineLexer::read_integer(std::string_view name) -> std::expected<Token<int>,
 auto LineLexer::read_double(std::string_view name) -> std::expected<Token<f64>, Empty>
 {
     if (!skip_whitespace()) {
-        m_diag.error(range_for_current_position(),
-            "expected {} (a floating point value) but found line end", name);
+        m_diag.error(range_for_current_position(), "expected {} (a floating-point value)",
+            name);
         return Empty::error();
     }
 
     f64 value = 0;
-    auto data_start = m_data.data() + m_position, data_end = m_data.data() + m_data.size();
-    auto [ptr, ec] = fast_float::from_chars(data_start, data_end, value);
     auto token = maybe_read_token().value();
+    auto [value_end, ec] = fast_float::from_chars(token.begin(), token.end(), value);
 
-    if (*ptr == 'd') {
+    if (value_end != token.end() && *value_end == 'd') {
         std::string mutated_token { token };
-        mutated_token[ptr - data_start] = 'e';
+        mutated_token[value_end - token.begin()] = 'e';
         auto begin = mutated_token.data(), end = mutated_token.data() + mutated_token.size();
         auto [mutated_ptr, mutated_ec] = fast_float::from_chars(begin, end, value);
         if (mutated_ptr == end) {
-            ptr = token.end();
+            value_end = token.end();
             ec = mutated_ec;
         }
     }
 
-    if (is_valid_token_character(*ptr)) {
-        m_diag.error({ m_file, token },
-            "expected {} (a floating point value) but found '{}'", name, token);
+    if (value_end != token.end()) {
+        m_diag.error(token, "expected {} (a floating-point value) but found '{}'",
+            name, token);
         return Empty::error();
     }
-    size_t new_position = ptr - m_data.data();
-    VERIFY(new_position == m_position);
 
     if (ec == std::errc::result_out_of_range) {
-        m_diag.error({ m_file, token },
-            "value {} for {} overflows 64-bit floating point variable", token, name);
+        m_diag.error(token, "value {} for {} overflows 64-bit floating point variable",
+            token, name);
         return Empty::error();
     }
 
@@ -101,8 +95,8 @@ auto LineLexer::read_double(std::string_view name) -> std::expected<Token<f64>, 
 auto LineLexer::read_string(std::string_view name) -> std::expected<Token<std::string>, Empty>
 {
     if (!skip_whitespace()) {
-        m_diag.error(range_for_current_position(),
-            "expected {} (a string) but found line end", name);
+        m_diag.error(range_for_current_position(), "expected {} (a string)",
+            name);
         return Empty::error();
     }
 
@@ -116,17 +110,22 @@ auto LineLexer::read_string(std::string_view name) -> std::expected<Token<std::s
     std::string value;
     size_t end_position = m_position + 1;
     for (;; ++end_position) {
-        if (end_position + 1 == m_data.size()) {
-            m_diag.error({ m_file, m_data.substr(end_position, 1) },
-                "expected closing '\"'");
+        if (end_position == m_data.size()) {
+            m_diag.error(m_end_of_line, "expected closing '\"'");
             m_diag.note(quote_range, "to match this '\"'");
             return Empty::error();
         }
 
         char c = m_data[end_position];
         if (c == '"') {
+            ++end_position;
             break;
         } else if (c == '\\') {
+            if (end_position + 1 == m_data.size()) {
+                m_diag.error(m_end_of_line, "expected escape character after '\\'");
+                return Empty::error();
+            }
+
             static std::map<char, char> const escape_characters = {
                 { 'n', '\n' },
                 { 'r', '\r' },
@@ -136,8 +135,8 @@ auto LineLexer::read_string(std::string_view name) -> std::expected<Token<std::s
             };
             char escape = m_data[++end_position];
             if (!escape_characters.contains(escape)) {
-                m_diag.error({ m_file, m_data.substr(end_position - 1, 2) },
-                    "invalid escape character {:?}", escape);
+                m_diag.error(m_data.substr(end_position - 1, 2), "invalid escape sequence '\\{}'",
+                    escape);
                 return Empty::error();
             }
             value += escape_characters.at(escape);
@@ -146,16 +145,15 @@ auto LineLexer::read_string(std::string_view name) -> std::expected<Token<std::s
         }
     }
 
-    auto token = m_data.substr(m_position, end_position - m_position + 1);
-    m_position = end_position + 1;
+    auto token = m_data.substr(m_position, end_position - m_position);
+    m_position = end_position;
     return Token { value, token };
 }
 
 auto LineLexer::expect_eof() -> std::expected<void, Empty>
 {
     if (skip_whitespace()) {
-        m_diag.error(range_for_current_position(),
-            "expected end of line");
+        m_diag.error(range_for_current_position(), "expected end of line");
         return Empty::error();
     }
     return {};
@@ -163,7 +161,10 @@ auto LineLexer::expect_eof() -> std::expected<void, Empty>
 
 SourceRange LineLexer::range_for_current_position()
 {
-    return { m_file, m_data.substr(m_position, 1) };
+    if (m_position == m_data.size()) {
+        return m_end_of_line;
+    }
+    return m_data.substr(m_position, 1);
 }
 
 bool LineLexer::is_valid_token_character(char c)
@@ -177,7 +178,7 @@ std::optional<std::string_view> LineLexer::maybe_read_token()
         return std::nullopt;
     }
     size_t start_position = m_position;
-    while (!is_space(m_data[m_position]) && m_data[m_position] != '#') {
+    while (m_position < m_data.size() && is_valid_token_character(m_data[m_position])) {
         ++m_position;
     }
     return m_data.substr(start_position, m_position - start_position);

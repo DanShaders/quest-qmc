@@ -10,13 +10,7 @@ namespace dqmc::parser {
 
 class LineLexer {
 public:
-    LineLexer(std::shared_ptr<FileView> file, std::string_view data, DiagnosticEngine& diag);
-
-    template<typename T>
-    struct Token {
-        T value;
-        std::string_view token;
-    };
+    LineLexer(std::string_view line, SourceRange end_of_line, DiagnosticEngine& diag);
 
     bool skip_whitespace();
 
@@ -32,8 +26,8 @@ private:
     bool is_valid_token_character(char c);
     std::optional<std::string_view> maybe_read_token();
 
-    std::shared_ptr<FileView> m_file;
     std::string_view m_data;
+    SourceRange m_end_of_line;
     DiagnosticEngine& m_diag;
 
     size_t m_position = 0;

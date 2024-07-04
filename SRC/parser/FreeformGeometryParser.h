@@ -27,7 +27,7 @@ struct ParsedFreeformGeometry {
         f64 u;
     };
 
-    int dimensions = 0;
+    int dimensions;
 
     // TODO: Check if we can just use 1 for basis and fake 1e3 in
     //       FreeformGeometry::legacy_compatible_format_into.
@@ -70,6 +70,11 @@ private:
         DILUT,
     };
 
+    struct SplitSection {
+        Lexer lexer;
+        SourceRange header_location;
+    };
+
     static constexpr auto section_headers = std::to_array({
         "#NDIM"sv,
         "#PRIM"sv,
@@ -92,7 +97,8 @@ private:
     std::expected<void, Empty> parse_hamiltonian();
 
     std::shared_ptr<FileView> m_file;
-    std::map<Section, std::pair<Lexer, SourceRange>> m_sections;
+    std::string_view m_data;
+    std::map<Section, SplitSection> m_sections;
     ParsedFreeformGeometry m_geometry;
     DiagnosticEngine& m_diag;
 };
