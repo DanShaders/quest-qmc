@@ -14,18 +14,6 @@ inline constexpr f64 epsilon = 1e-12;
 
 class FreeformGeometry {
 public:
-    // Parameters for the freeform geometry that are provided externally for configuration
-    // backward-compatibility reasons. These usually come from the main configuration file.
-    struct SpinSpecificParameters {
-        f64 mu = 0;
-        f64 phase_shift_for_supercell_vector[3] = { 0, 0, 0 };
-    };
-
-    struct Parameters {
-        SpinSpecificParameters up;
-        SpinSpecificParameters down;
-    };
-
     class Site {
     public:
         Site(std::string label, Vector3d cartesian_position, Vector3d fractionary_position)
@@ -47,8 +35,8 @@ public:
 
     static std::expected<FreeformGeometry, Empty> create(
         parser::DiagnosticEngine& diag,
-        Parameters const& global_parameters,
-        parser::ParsedFreeformGeometry const& geometry);
+        parser::ParsedFreeformGeometry const& geometry,
+        parser::ParsedFreeformGeometryParameters const& parameters);
 
     void legacy_compatible_format_into(std::ostream& stream) const;
 
@@ -71,8 +59,8 @@ private:
 
     std::expected<void, Empty> initialize(
         parser::DiagnosticEngine& diag,
-        Parameters const& global_parameters,
-        parser::ParsedFreeformGeometry const& geometry);
+        parser::ParsedFreeformGeometry const& geometry,
+        parser::ParsedFreeformGeometryParameters const& parameters);
 
     int m_dimensions = 0;
     // Cartesian components of primitive cell (*)

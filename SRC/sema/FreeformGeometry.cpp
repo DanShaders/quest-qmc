@@ -106,11 +106,11 @@ std::vector<FreeformGeometry::Site> compute_sites(FreeformGeometry const& geomet
 
 std::expected<FreeformGeometry, Empty> FreeformGeometry::create(
     parser::DiagnosticEngine& diag,
-    Parameters const& global_parameters,
-    parser::ParsedFreeformGeometry const& geometry)
+    parser::ParsedFreeformGeometry const& geometry,
+    parser::ParsedFreeformGeometryParameters const& parameters)
 {
     FreeformGeometry result;
-    TRY(result.initialize(diag, global_parameters, geometry));
+    TRY(result.initialize(diag, geometry, parameters));
     return result;
 }
 
@@ -170,8 +170,8 @@ void FreeformGeometry::legacy_compatible_format_into(std::ostream& stream) const
 
 std::expected<void, Empty> FreeformGeometry::initialize(
     parser::DiagnosticEngine& diag,
-    Parameters const& /*global_parameters*/,
-    parser::ParsedFreeformGeometry const& geometry)
+    parser::ParsedFreeformGeometry const& geometry,
+    parser::ParsedFreeformGeometryParameters const& parameters)
 {
     // dimensions
     VERIFY(geometry.dimensions >= 1 && geometry.dimensions <= 3);
