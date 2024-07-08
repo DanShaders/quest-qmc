@@ -35,6 +35,7 @@ set(SOURCES
 
     common/Error.cpp
     common/Filesystem.cpp
+    parser/Config.cpp
     parser/DiagnosticEngine.cpp
     parser/FreeformGeometryParser.cpp
     parser/Lexer.cpp

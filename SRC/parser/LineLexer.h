@@ -18,6 +18,9 @@ public:
     std::expected<Token<f64>, Empty> read_double(std::string_view name);
     std::expected<Token<std::string>, Empty> read_string(std::string_view name);
 
+    std::expected<void, Empty> read_comma();
+    std::expected<void, Empty> read_equals();
+
     std::expected<void, Empty> expect_eof();
 
     SourceRange range_for_current_position();

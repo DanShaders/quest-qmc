@@ -150,7 +150,35 @@ auto LineLexer::read_string(std::string_view name) -> std::expected<Token<std::s
     return Token { value, token };
 }
 
-auto LineLexer::expect_eof() -> std::expected<void, Empty>
+std::expected<void, Empty> LineLexer::read_comma()
+{
+    auto token = maybe_read_token();
+    if (!token.has_value()) {
+        m_diag.error(range_for_current_position(), "expected ','");
+        return Empty::error();
+    }
+    if (token.value() != ",") {
+        m_diag.error(token.value(), "expected ',' but found '{}'", token.value());
+        return Empty::error();
+    }
+    return {};
+}
+
+std::expected<void, Empty> LineLexer::read_equals()
+{
+    auto token = maybe_read_token();
+    if (!token.has_value()) {
+        m_diag.error(range_for_current_position(), "expected '='");
+        return Empty::error();
+    }
+    if (token.value() != "=") {
+        m_diag.error(token.value(), "expected '=' but found '{}'", token.value());
+        return Empty::error();
+    }
+    return {};
+}
+
+std::expected<void, Empty> LineLexer::expect_eof()
 {
     if (skip_whitespace()) {
         m_diag.error(range_for_current_position(), "expected end of line");
