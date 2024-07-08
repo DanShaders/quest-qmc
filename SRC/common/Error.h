@@ -54,9 +54,9 @@ using ErrorOr = std::expected<T, E>;
 
 namespace detail {
 
-void verify_assertion_failed(char const* expression, char const* file, int line);
-void reachability_assertion_failed(char const* file, int line);
-void must_assertion_failed(char const* expression, char const* file, int line);
+[[noreturn]] void verify_assertion_failed(char const* expression, char const* file, int line);
+[[noreturn]] void reachability_assertion_failed(char const* file, int line);
+[[noreturn]] void must_assertion_failed(char const* expression, char const* file, int line);
 
 } // namespace detail
 
