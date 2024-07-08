@@ -23,7 +23,6 @@ public:
     SourceRange range_for_current_position();
 
 private:
-    bool is_valid_token_character(char c);
     std::optional<std::string_view> maybe_read_token();
 
     std::string_view m_data;

@@ -167,18 +167,20 @@ SourceRange LineLexer::range_for_current_position()
     return m_data.substr(m_position, 1);
 }
 
-bool LineLexer::is_valid_token_character(char c)
-{
-    return !is_space(c) && c != '#';
-}
-
 std::optional<std::string_view> LineLexer::maybe_read_token()
 {
     if (!skip_whitespace()) {
         return std::nullopt;
     }
     size_t start_position = m_position;
-    while (m_position < m_data.size() && is_valid_token_character(m_data[m_position])) {
+    if (m_data[start_position] != ',' && m_data[start_position] != '=') {
+        auto is_valid_token_continuation = [&](char c) {
+            return !is_space(c) && c != '#' && c != ',' && c != '=';
+        };
+        while (m_position < m_data.size() && is_valid_token_continuation(m_data[m_position])) {
+            ++m_position;
+        }
+    } else {
         ++m_position;
     }
     return m_data.substr(start_position, m_position - start_position);
