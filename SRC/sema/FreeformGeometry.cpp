@@ -104,7 +104,7 @@ std::vector<FreeformGeometry::Site> compute_sites(FreeformGeometry const& geomet
 
 } // namespace
 
-std::expected<FreeformGeometry, Empty> FreeformGeometry::create(
+parser::DiagnosticOr<FreeformGeometry> FreeformGeometry::create(
     parser::DiagnosticEngine& diag,
     parser::ParsedFreeformGeometry const& geometry,
     parser::ParsedFreeformGeometryParameters const& parameters)
@@ -168,7 +168,7 @@ void FreeformGeometry::legacy_compatible_format_into(std::ostream& stream) const
     }
 }
 
-std::expected<void, Empty> FreeformGeometry::initialize(
+parser::DiagnosticOr<void> FreeformGeometry::initialize(
     parser::DiagnosticEngine& diag,
     parser::ParsedFreeformGeometry const& geometry,
     parser::ParsedFreeformGeometryParameters const& parameters)
@@ -189,9 +189,8 @@ std::expected<void, Empty> FreeformGeometry::initialize(
     }
 
     if (std::abs(m_lattice_basis.determinant()) < epsilon) {
-        diag.error(geometry.lattice_basis_location,
+        return diag.error(geometry.lattice_basis_location,
             "lattice basis is not linearly independent");
-        return Empty::error();
     }
 
     // supercell_fractionary_basis
@@ -206,9 +205,8 @@ std::expected<void, Empty> FreeformGeometry::initialize(
     }
 
     if (supercell_fractionary_basis().determinant() == 0) {
-        diag.error(geometry.supercell_basis_location,
+        return diag.error(geometry.supercell_basis_location,
             "supercell does not contain any primary cells");
-        return Empty::error();
     }
 
     // supercell_cartesian_basis

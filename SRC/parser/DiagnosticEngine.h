@@ -60,10 +60,15 @@ struct Token {
     SourceRange location;
 };
 
+struct DiagnosedError { };
+
+template<typename T>
+using DiagnosticOr = ErrorOr<T, DiagnosedError>;
+
 class DiagnosticEngine {
 public:
     template<typename... Args>
-    void error(SourceRange location, std::format_string<Args...> fmt, Args&&... args)
+    std::unexpected<DiagnosedError> error(SourceRange location, std::format_string<Args...> fmt, Args&&... args)
     {
         m_messages.push_back({
             .severity = Severity::Error,
@@ -71,6 +76,7 @@ public:
             .message = std::format(fmt, std::forward<Args>(args)...),
         });
         m_has_errors = true;
+        return std::unexpected { DiagnosedError {} };
     }
 
     template<typename... Args>
@@ -84,20 +90,21 @@ public:
     }
 
     template<typename... Args>
-    void note(SourceRange location, std::format_string<Args...> fmt, Args&&... args)
+    std::unexpected<DiagnosedError> note(SourceRange location, std::format_string<Args...> fmt, Args&&... args)
     {
         m_messages.push_back({
             .severity = Severity::Note,
             .location = std::move(location),
             .message = std::format(fmt, std::forward<Args>(args)...),
         });
+        return std::unexpected { DiagnosedError {} };
     }
 
     ErrorOr<void> with(std::ostream& output, auto&& func)
     {
         m_has_errors = false;
         m_messages.clear();
-        std::expected<void, Empty> result = func();
+        DiagnosticOr<void> result = func();
         format_diagnostics(output);
         VERIFY(m_has_errors != result.has_value());
         if (result.has_value()) {

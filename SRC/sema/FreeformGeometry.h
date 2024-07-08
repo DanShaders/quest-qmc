@@ -2,8 +2,8 @@
 
 #include <Eigen/Core>
 
-#include "SRC/common/Error.h"
 #include "SRC/common/Types.h"
+#include "SRC/parser/DiagnosticEngine.h"
 #include "SRC/parser/Forward.h"
 
 namespace dqmc::sema {
@@ -33,7 +33,7 @@ public:
         Vector3d m_fractionary_position;
     };
 
-    static std::expected<FreeformGeometry, Empty> create(
+    static parser::DiagnosticOr<FreeformGeometry> create(
         parser::DiagnosticEngine& diag,
         parser::ParsedFreeformGeometry const& geometry,
         parser::ParsedFreeformGeometryParameters const& parameters);
@@ -57,7 +57,7 @@ public:
 private:
     FreeformGeometry() = default;
 
-    std::expected<void, Empty> initialize(
+    parser::DiagnosticOr<void> initialize(
         parser::DiagnosticEngine& diag,
         parser::ParsedFreeformGeometry const& geometry,
         parser::ParsedFreeformGeometryParameters const& parameters);

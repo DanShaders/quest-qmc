@@ -27,12 +27,11 @@ bool LineLexer::skip_whitespace()
     return m_position != m_data.size() && m_data[m_position] != '#';
 }
 
-auto LineLexer::read_integer(std::string_view name) -> std::expected<Token<int>, Empty>
+DiagnosticOr<Token<int>> LineLexer::read_integer(std::string_view name)
 {
     if (!skip_whitespace()) {
-        m_diag.error(range_for_current_position(), "expected {} (an integer value)",
+        return m_diag.error(range_for_current_position(), "expected {} (an integer value)",
             name);
-        return Empty::error();
     }
 
     int value = 0;
@@ -40,26 +39,23 @@ auto LineLexer::read_integer(std::string_view name) -> std::expected<Token<int>,
     auto [value_end, ec] = std::from_chars(token.begin(), token.end(), value);
 
     if (value_end != token.end()) {
-        m_diag.error(token, "expected {} (an integer value) but found '{}'",
+        return m_diag.error(token, "expected {} (an integer value) but found '{}'",
             name, token);
-        return Empty::error();
     }
 
     if (ec == std::errc::result_out_of_range) {
-        m_diag.error(token, "value {} for {} overflows 32-bit integral variable",
+        return m_diag.error(token, "value {} for {} overflows 32-bit integral variable",
             token, name);
-        return Empty::error();
     }
 
     return Token { value, token };
 }
 
-auto LineLexer::read_double(std::string_view name) -> std::expected<Token<f64>, Empty>
+DiagnosticOr<Token<f64>> LineLexer::read_double(std::string_view name)
 {
     if (!skip_whitespace()) {
-        m_diag.error(range_for_current_position(), "expected {} (a floating-point value)",
+        return m_diag.error(range_for_current_position(), "expected {} (a floating-point value)",
             name);
-        return Empty::error();
     }
 
     f64 value = 0;
@@ -78,26 +74,23 @@ auto LineLexer::read_double(std::string_view name) -> std::expected<Token<f64>, 
     }
 
     if (value_end != token.end()) {
-        m_diag.error(token, "expected {} (a floating-point value) but found '{}'",
+        return m_diag.error(token, "expected {} (a floating-point value) but found '{}'",
             name, token);
-        return Empty::error();
     }
 
     if (ec == std::errc::result_out_of_range) {
-        m_diag.error(token, "value {} for {} overflows 64-bit floating point variable",
+        return m_diag.error(token, "value {} for {} overflows 64-bit floating point variable",
             token, name);
-        return Empty::error();
     }
 
     return Token { value, token };
 }
 
-auto LineLexer::read_string(std::string_view name) -> std::expected<Token<std::string>, Empty>
+DiagnosticOr<Token<std::string>> LineLexer::read_string(std::string_view name)
 {
     if (!skip_whitespace()) {
-        m_diag.error(range_for_current_position(), "expected {} (a string)",
+        return m_diag.error(range_for_current_position(), "expected {} (a string)",
             name);
-        return Empty::error();
     }
 
     if (m_data[m_position] != '"') {
@@ -112,8 +105,7 @@ auto LineLexer::read_string(std::string_view name) -> std::expected<Token<std::s
     for (;; ++end_position) {
         if (end_position == m_data.size()) {
             m_diag.error(m_end_of_line, "expected closing '\"'");
-            m_diag.note(quote_range, "to match this '\"'");
-            return Empty::error();
+            return m_diag.note(quote_range, "to match this '\"'");
         }
 
         char c = m_data[end_position];
@@ -122,8 +114,7 @@ auto LineLexer::read_string(std::string_view name) -> std::expected<Token<std::s
             break;
         } else if (c == '\\') {
             if (end_position + 1 == m_data.size()) {
-                m_diag.error(m_end_of_line, "expected escape character after '\\'");
-                return Empty::error();
+                return m_diag.error(m_end_of_line, "expected escape character after '\\'");
             }
 
             static std::map<char, char> const escape_characters = {
@@ -135,9 +126,8 @@ auto LineLexer::read_string(std::string_view name) -> std::expected<Token<std::s
             };
             char escape = m_data[++end_position];
             if (!escape_characters.contains(escape)) {
-                m_diag.error(m_data.substr(end_position - 1, 2), "invalid escape sequence '\\{}'",
+                return m_diag.error(m_data.substr(end_position - 1, 2), "invalid escape sequence '\\{}'",
                     escape);
-                return Empty::error();
             }
             value += escape_characters.at(escape);
         } else {
@@ -150,39 +140,34 @@ auto LineLexer::read_string(std::string_view name) -> std::expected<Token<std::s
     return Token { value, token };
 }
 
-std::expected<void, Empty> LineLexer::read_comma()
+DiagnosticOr<void> LineLexer::read_comma()
 {
     auto token = maybe_read_token();
     if (!token.has_value()) {
-        m_diag.error(range_for_current_position(), "expected ','");
-        return Empty::error();
+        return m_diag.error(range_for_current_position(), "expected ','");
     }
     if (token.value() != ",") {
-        m_diag.error(token.value(), "expected ',' but found '{}'", token.value());
-        return Empty::error();
+        return m_diag.error(token.value(), "expected ',' but found '{}'", token.value());
     }
     return {};
 }
 
-std::expected<void, Empty> LineLexer::read_equals()
+DiagnosticOr<void> LineLexer::read_equals()
 {
     auto token = maybe_read_token();
     if (!token.has_value()) {
-        m_diag.error(range_for_current_position(), "expected '='");
-        return Empty::error();
+        return m_diag.error(range_for_current_position(), "expected '='");
     }
     if (token.value() != "=") {
-        m_diag.error(token.value(), "expected '=' but found '{}'", token.value());
-        return Empty::error();
+        return m_diag.error(token.value(), "expected '=' but found '{}'", token.value());
     }
     return {};
 }
 
-std::expected<void, Empty> LineLexer::expect_eof()
+DiagnosticOr<void> LineLexer::expect_eof()
 {
     if (skip_whitespace()) {
-        m_diag.error(range_for_current_position(), "expected end of line");
-        return Empty::error();
+        return m_diag.error(range_for_current_position(), "expected end of line");
     }
     return {};
 }

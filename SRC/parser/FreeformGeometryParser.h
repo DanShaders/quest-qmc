@@ -54,7 +54,7 @@ class FreeformGeometryParser {
 public:
     FreeformGeometryParser(std::shared_ptr<FileView> file, DiagnosticEngine& diag);
 
-    std::expected<ParsedFreeformGeometry, Empty> parse();
+    DiagnosticOr<ParsedFreeformGeometry> parse();
 
 private:
     enum class Section {
@@ -90,11 +90,11 @@ private:
 
     void split_into_sections();
     void parse_preamble(Lexer section);
-    std::expected<void, Empty> parse_number_of_dimensions();
-    std::expected<void, Empty> parse_lattice_basis();
-    std::expected<void, Empty> parse_supercell_basis();
-    std::expected<void, Empty> parse_primitive_cell_sites();
-    std::expected<void, Empty> parse_hamiltonian();
+    DiagnosticOr<void> parse_number_of_dimensions();
+    DiagnosticOr<void> parse_lattice_basis();
+    DiagnosticOr<void> parse_supercell_basis();
+    DiagnosticOr<void> parse_primitive_cell_sites();
+    DiagnosticOr<void> parse_hamiltonian();
 
     std::shared_ptr<FileView> m_file;
     std::string_view m_data;

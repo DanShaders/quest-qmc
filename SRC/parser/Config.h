@@ -18,7 +18,7 @@ public:
     ParametersParser() { }
     virtual ~ParametersParser() = default;
 
-    virtual std::expected<void, Empty> parse(ConfigParser& parser, DiagnosticEngine& diag) = 0;
+    virtual DiagnosticOr<void> parse(ConfigParser& parser, DiagnosticEngine& diag) = 0;
 };
 
 template<typename T>
@@ -40,18 +40,18 @@ public:
         return *static_cast<T*>(m_parsers.back().get());
     }
 
-    std::expected<void, Empty> parse();
+    DiagnosticOr<void> parse();
 
-    std::expected<Token<f64>, Empty> claim_double(
+    DiagnosticOr<Token<f64>> claim_double(
         std::string_view key,
         std::optional<f64> default_value = std::nullopt);
 
-    std::expected<ArrayWithSourceLocation<f64>, Empty> claim_double_array(
+    DiagnosticOr<ArrayWithSourceLocation<f64>> claim_double_array(
         std::string_view key,
         std::optional<std::vector<f64>> default_value = std::nullopt);
 
 private:
-    std::expected<LineLexer*, Empty> claim_lexer(std::string_view key);
+    DiagnosticOr<LineLexer*> claim_lexer(std::string_view key);
 
     struct Parameter {
         LineLexer lexer;

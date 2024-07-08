@@ -1,8 +1,5 @@
 #pragma once
 
-#include <expected>
-#include <memory>
-
 #include "SRC/common/Types.h"
 #include "SRC/parser/DiagnosticEngine.h"
 
@@ -14,14 +11,14 @@ public:
 
     bool skip_whitespace();
 
-    std::expected<Token<int>, Empty> read_integer(std::string_view name);
-    std::expected<Token<f64>, Empty> read_double(std::string_view name);
-    std::expected<Token<std::string>, Empty> read_string(std::string_view name);
+    DiagnosticOr<Token<int>> read_integer(std::string_view name);
+    DiagnosticOr<Token<f64>> read_double(std::string_view name);
+    DiagnosticOr<Token<std::string>> read_string(std::string_view name);
 
-    std::expected<void, Empty> read_comma();
-    std::expected<void, Empty> read_equals();
+    DiagnosticOr<void> read_comma();
+    DiagnosticOr<void> read_equals();
 
-    std::expected<void, Empty> expect_eof();
+    DiagnosticOr<void> expect_eof();
 
     SourceRange range_for_current_position();
 

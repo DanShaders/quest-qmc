@@ -9,12 +9,11 @@ Lexer::Lexer(std::string_view data, SourceRange end_of_data, DiagnosticEngine& d
 {
 }
 
-std::expected<void, Empty> Lexer::expect_section_end()
+DiagnosticOr<void> Lexer::expect_section_end()
 {
     auto line = nonempty_line();
     if (line.has_value()) {
-        m_diag.get().error(line->range_for_current_position(), "expected section end");
-        return Empty::error();
+        return m_diag.get().error(line->range_for_current_position(), "expected section end");
     }
     return {};
 }

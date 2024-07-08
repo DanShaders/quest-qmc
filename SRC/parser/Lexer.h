@@ -11,7 +11,7 @@ public:
     Lexer(std::string_view data, SourceRange end_of_data, DiagnosticEngine& diag);
 
     std::expected<LineLexer, SourceRange> nonempty_line();
-    std::expected<void, Empty> expect_section_end();
+    DiagnosticOr<void> expect_section_end();
 
 private:
     std::string_view m_data;

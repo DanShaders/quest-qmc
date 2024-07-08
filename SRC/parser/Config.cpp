@@ -9,7 +9,7 @@ ConfigParser::ConfigParser(std::shared_ptr<FileView> file, DiagnosticEngine& dia
     m_diag.register_file(m_file);
 }
 
-std::expected<void, Empty> ConfigParser::parse()
+DiagnosticOr<void> ConfigParser::parse()
 {
     Lexer lexer { m_file->content(), SourceRange::at_end_of_file(*m_file), m_diag };
     while (true) {
@@ -35,7 +35,7 @@ std::expected<void, Empty> ConfigParser::parse()
     return {};
 }
 
-std::expected<Token<f64>, Empty> ConfigParser::claim_double(
+DiagnosticOr<Token<f64>> ConfigParser::claim_double(
     std::string_view key,
     std::optional<f64> default_value)
 {
@@ -49,7 +49,7 @@ std::expected<Token<f64>, Empty> ConfigParser::claim_double(
     return result;
 }
 
-std::expected<ArrayWithSourceLocation<f64>, Empty> ConfigParser::claim_double_array(
+DiagnosticOr<ArrayWithSourceLocation<f64>> ConfigParser::claim_double_array(
     std::string_view key,
     std::optional<std::vector<f64>> default_value)
 {
@@ -79,13 +79,12 @@ std::expected<ArrayWithSourceLocation<f64>, Empty> ConfigParser::claim_double_ar
     return result;
 }
 
-std::expected<LineLexer*, Empty> ConfigParser::claim_lexer(std::string_view key)
+DiagnosticOr<LineLexer*> ConfigParser::claim_lexer(std::string_view key)
 {
     auto it = m_parameters.find(key);
     if (it == m_parameters.end()) {
-        m_diag.error(*m_file, "required key '{}' is not defined",
+        return m_diag.error(*m_file, "required key '{}' is not defined",
             key);
-        return Empty::error();
     }
 
     auto& parameter = it->second;

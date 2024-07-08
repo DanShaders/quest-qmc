@@ -45,10 +45,6 @@ private:
     std::string m_message;
 };
 
-struct Empty {
-    static std::unexpected<Empty> error() { return std::unexpected<Empty> { {} }; }
-};
-
 template<typename T, typename E = Error>
 using ErrorOr = std::expected<T, E>;
 

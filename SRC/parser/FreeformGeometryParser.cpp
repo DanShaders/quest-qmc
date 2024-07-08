@@ -13,13 +13,13 @@ FreeformGeometryParser::FreeformGeometryParser(std::shared_ptr<FileView> file, D
     m_diag.register_file(m_file);
 }
 
-std::expected<ParsedFreeformGeometry, Empty> FreeformGeometryParser::parse()
+DiagnosticOr<ParsedFreeformGeometry> FreeformGeometryParser::parse()
 {
     split_into_sections();
 
     (void)parse_number_of_dimensions();
     if (!m_geometry.dimensions) {
-        return Empty::error();
+        return std::unexpected { DiagnosedError {} };
     }
     (void)parse_lattice_basis();
     (void)parse_supercell_basis();
@@ -27,7 +27,7 @@ std::expected<ParsedFreeformGeometry, Empty> FreeformGeometryParser::parse()
     (void)parse_hamiltonian();
 
     if (m_diag.has_errors()) {
-        return Empty::error();
+        return std::unexpected { DiagnosedError {} };
     }
 
     return m_geometry;
@@ -98,24 +98,21 @@ void FreeformGeometryParser::parse_preamble(Lexer section)
     }
 }
 
-std::expected<void, Empty> FreeformGeometryParser::parse_number_of_dimensions()
+DiagnosticOr<void> FreeformGeometryParser::parse_number_of_dimensions()
 {
     if (!m_sections.contains(Section::NumberOfDimensions)) {
-        m_diag.error(*m_file, "missing required 'NDIM' section");
-        return Empty::error();
+        return m_diag.error(*m_file, "missing required 'NDIM' section");
     }
 
     auto& [lexer, _] = m_sections.at(Section::NumberOfDimensions);
     auto line = lexer.nonempty_line();
     if (!line.has_value()) {
-        m_diag.error(line.error(), "expected number of dimensions (an integer value)");
-        return Empty::error();
+        return m_diag.error(line.error(), "expected number of dimensions (an integer value)");
     }
 
     auto [number_of_dimensions, token] = TRY(line->read_integer("number of dimensions"));
     if (number_of_dimensions < 1 || number_of_dimensions > 3) {
-        m_diag.error(token, "number of dimensions must be 1, 2, or 3");
-        return Empty::error();
+        return m_diag.error(token, "number of dimensions must be 1, 2, or 3");
     }
     m_geometry.dimensions = number_of_dimensions;
 
@@ -124,11 +121,10 @@ std::expected<void, Empty> FreeformGeometryParser::parse_number_of_dimensions()
     return {};
 }
 
-std::expected<void, Empty> FreeformGeometryParser::parse_lattice_basis()
+DiagnosticOr<void> FreeformGeometryParser::parse_lattice_basis()
 {
     if (!m_sections.contains(Section::LatticeBasis)) {
-        m_diag.error(*m_file, "missing required 'PRIM' section");
-        return Empty::error();
+        return m_diag.error(*m_file, "missing required 'PRIM' section");
     }
 
     auto& [lexer, location] = m_sections.at(Section::LatticeBasis);
@@ -137,9 +133,8 @@ std::expected<void, Empty> FreeformGeometryParser::parse_lattice_basis()
     for (size_t i = 0; i < m_geometry.dimensions; ++i) {
         auto line = lexer.nonempty_line();
         if (!line.has_value()) {
-            m_diag.error(line.error(), "expected {} lattice basis vector",
+            return m_diag.error(line.error(), "expected {} lattice basis vector",
                 ordinal_names[i]);
-            return Empty::error();
         }
 
         for (size_t j = 0; j < m_geometry.dimensions; ++j) {
@@ -155,11 +150,10 @@ std::expected<void, Empty> FreeformGeometryParser::parse_lattice_basis()
     return {};
 }
 
-std::expected<void, Empty> FreeformGeometryParser::parse_supercell_basis()
+DiagnosticOr<void> FreeformGeometryParser::parse_supercell_basis()
 {
     if (!m_sections.contains(Section::SupercellBasis)) {
-        m_diag.error(*m_file, "missing required 'SUPER' section");
-        return Empty::error();
+        return m_diag.error(*m_file, "missing required 'SUPER' section");
     }
 
     auto& [lexer, location] = m_sections.at(Section::SupercellBasis);
@@ -168,9 +162,8 @@ std::expected<void, Empty> FreeformGeometryParser::parse_supercell_basis()
     for (size_t i = 0; i < m_geometry.dimensions; ++i) {
         auto line = lexer.nonempty_line();
         if (!line.has_value()) {
-            m_diag.error(line.error(), "expected {} supercell basis vector",
+            return m_diag.error(line.error(), "expected {} supercell basis vector",
                 ordinal_names[i]);
-            return Empty::error();
         }
 
         for (size_t j = 0; j < m_geometry.dimensions; ++j) {
@@ -186,11 +179,10 @@ std::expected<void, Empty> FreeformGeometryParser::parse_supercell_basis()
     return {};
 }
 
-std::expected<void, Empty> FreeformGeometryParser::parse_primitive_cell_sites()
+DiagnosticOr<void> FreeformGeometryParser::parse_primitive_cell_sites()
 {
     if (!m_sections.contains(Section::PrimitiveCellSites)) {
-        m_diag.error(*m_file, "missing required 'ORB' section");
-        return Empty::error();
+        return m_diag.error(*m_file, "missing required 'ORB' section");
     }
 
     auto& [lexer, _] = m_sections.at(Section::PrimitiveCellSites);
@@ -219,11 +211,10 @@ std::expected<void, Empty> FreeformGeometryParser::parse_primitive_cell_sites()
     return {};
 }
 
-std::expected<void, Empty> FreeformGeometryParser::parse_hamiltonian()
+DiagnosticOr<void> FreeformGeometryParser::parse_hamiltonian()
 {
     if (!m_sections.contains(Section::Hamiltonian)) {
-        m_diag.error(*m_file, "missing required 'HAMILT' section");
-        return Empty::error();
+        return m_diag.error(*m_file, "missing required 'HAMILT' section");
     }
 
     auto& [lexer, _] = m_sections.at(Section::Hamiltonian);
@@ -238,9 +229,8 @@ std::expected<void, Empty> FreeformGeometryParser::parse_hamiltonian()
 
         for (auto [index, token] : { std::tuple { from, from_token }, { to, to_token } }) {
             if (index < 0 || index > m_geometry.primitive_cell_sites.size()) {
-                m_diag.error(token, "site index must be in the range [0, {})",
+                return m_diag.error(token, "site index must be in the range [0, {})",
                     m_geometry.primitive_cell_sites.size());
-                return Empty::error();
             }
         }
 
@@ -271,8 +261,7 @@ std::expected<void, Empty> FreeformGeometryParser::parse_hamiltonian()
             auto [u, u_token] = TRY(line->read_double("on-site interaction energy"));
 
             if (u != 0) {
-                m_diag.error(u_token, "value of on-site interaction energy parameter must be zero for hopping terms");
-                return Empty::error();
+                return m_diag.error(u_token, "value of on-site interaction energy parameter must be zero for hopping terms");
             }
 
             m_geometry.hamiltonian.emplace_back(ParsedFreeformGeometry::Hopping {

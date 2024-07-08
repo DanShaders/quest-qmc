@@ -1,3 +1,5 @@
+#pragma once
+
 #include "SRC/parser/Config.h"
 
 namespace dqmc::parser {
@@ -10,7 +12,7 @@ struct ParsedFreeformGeometryParameters {
 
 class FreeformGeometryParametersParser final : public ParametersParser {
 public:
-    virtual std::expected<void, Empty> parse(ConfigParser& parser, DiagnosticEngine& diag) override;
+    virtual DiagnosticOr<void> parse(ConfigParser& parser, DiagnosticEngine& diag) override;
 
     ParsedFreeformGeometryParameters const& parameters() const& { return m_parameters; }
 
