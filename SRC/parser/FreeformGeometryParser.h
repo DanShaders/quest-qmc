@@ -1,7 +1,6 @@
 #pragma once
 
-#include <variant>
-
+#include "SRC/common/Variant.h"
 #include "SRC/parser/Lexer.h"
 
 namespace dqmc::parser {

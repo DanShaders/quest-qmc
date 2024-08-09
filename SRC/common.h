@@ -2,7 +2,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <print>
-#include <variant>
+
+#include "SRC/common/Variant.h"
 
 using i8 = int8_t;
 using i16 = int16_t;
@@ -38,24 +39,6 @@ struct CFI_cdesc_t {
 };
 
 namespace dqmc {
-
-namespace detail {
-
-template<typename... Ts>
-struct OverloadSet : Ts... {
-    using Ts::operator()...;
-};
-
-template<typename... Ts>
-OverloadSet(Ts...) -> OverloadSet<Ts...>;
-
-} // namespace detail
-
-template<typename Variant, typename... Visitors>
-decltype(auto) visit(Variant&& variant, Visitors&&... visitors)
-{
-    return std::visit(detail::OverloadSet { std::forward<Visitors>(visitors)... }, std::forward<Variant>(variant));
-}
 
 inline void assertion_failed(char const* expr, char const* file, int line)
 {
