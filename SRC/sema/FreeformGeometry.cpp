@@ -1,6 +1,7 @@
 #include <Eigen/LU>
 #include <set>
 
+#include "SRC/parser/FreeformGeometryParametersParser.h"
 #include "SRC/parser/FreeformGeometryParser.h"
 #include "SRC/sema/FreeformGeometry.h"
 
@@ -8,35 +9,42 @@ namespace dqmc::sema {
 
 namespace {
 
-std::vector<Vector3i> compute_primitive_cells_in_supercell(Lattice const& lattice)
-{
-    // Compute the number of points with integer fractionary coordinates in a supercell. These will
-    // be precisely points we are interested to find explicitly.
-    int det = lattice.supercell_fractionary_basis.determinant();
+using Vector3iComparator = decltype([](Vector3i const& a, Vector3i const& b) {
+    return std::tie(a[0], a[1], a[2]) < std::tie(b[0], b[1], b[2]);
+});
 
-    Matrix3i supercell_basis_inverse; // = (lattice.supercell_fractionary_basis)^-1 * det
+// Returns { abs(det(basis)), (basis)^-1 * abs(det) }.
+std::pair<int, Matrix3i> compute_premultiplied_inverse(Matrix3i const& basis)
+{
+    int det = basis.determinant();
+
+    Matrix3i inverse;
     {
-        auto const& m = lattice.supercell_fractionary_basis;
+        auto const& m = basis;
         for (int i = 0; i < 3; ++i) {
             for (int j = 0; j < 3; ++j) {
-                supercell_basis_inverse(j, i)
+                inverse(j, i)
                     = m((i + 1) % 3, (j + 1) % 3) * m((i + 2) % 3, (j + 2) % 3)
                     - m((i + 2) % 3, (j + 1) % 3) * m((i + 1) % 3, (j + 2) % 3);
             }
         }
     }
     if (det < 0) {
-        supercell_basis_inverse = -supercell_basis_inverse;
+        inverse = -inverse;
         det = -det;
     }
 
+    return { det, inverse };
+}
+
+std::vector<Vector3i> compute_primitive_cells_in_supercell(Lattice const& lattice)
+{
+    // Compute the number of points with integer fractionary coordinates in a supercell. These will
+    // be precisely points we are interested to find explicitly.
+    auto [det, supercell_basis_inverse] = compute_premultiplied_inverse(lattice.supercell_fractionary_basis);
+
     std::vector<Vector3i> result = { { 0, 0, 0 } };
-    std::set<
-        Vector3i,
-        decltype([](Vector3i const& a, Vector3i const& b) {
-            return std::tie(a[0], a[1], a[2]) < std::tie(b[0], b[1], b[2]);
-        })>
-        seen_vertices;
+    std::set<Vector3i, Vector3iComparator> seen_vertices;
     seen_vertices.emplace(0, 0, 0);
 
     // To find points themselves, we want to do BFS on the graph where vertices are points with
@@ -57,7 +65,7 @@ std::vector<Vector3i> compute_primitive_cells_in_supercell(Lattice const& lattic
 
                 for (int component = 0; component < 3; ++component) {
                     int& coordinate = neighbor[component];
-                    coordinate -= coordinate / det * det;
+                    coordinate %= det;
                     if (coordinate < 0) {
                         coordinate += det;
                     }
@@ -229,6 +237,105 @@ parser::DiagnosticOr<void> FreeformGeometry::initialize(
 
     // sites
     m_lattice.sites = compute_sites(m_lattice);
+
+    // ===== m_hamiltonian initialization =====
+    int cell_site_count = m_lattice.primitive_cell_sites.size();
+    int total_site_count = m_lattice.sites.size();
+    int cells_count = m_lattice.primitive_cells_in_supercell.size();
+
+    m_hamiltonian.interactions.resize(total_site_count);
+    for (auto& site : m_hamiltonian.interactions) {
+        site.mu_up = parameters.mu_up;
+        site.mu_down = parameters.mu_down;
+    }
+
+    m_hamiltonian.hoppings[0] = MatrixXd::Zero(total_site_count, total_site_count);
+    m_hamiltonian.hoppings[1] = MatrixXd::Zero(total_site_count, total_site_count);
+
+    auto [supercell_size, supercell_basis_inverse] = compute_premultiplied_inverse(m_lattice.supercell_fractionary_basis);
+
+    std::map<Vector3i, int, Vector3iComparator> index_of_primitive_cell;
+    for (int i = 0; i < cells_count; ++i) {
+        index_of_primitive_cell[m_lattice.primitive_cells_in_supercell[i]] = i;
+    }
+
+    for (auto const& term : geometry.hamiltonian) {
+        bool issued_diagnostic = false;
+
+        visit(
+            term,
+            [&](parser::ParsedFreeformGeometry::OnSiteInteraction const& interaction) {
+                for (int cell = 0; cell < cells_count; ++cell) {
+                    int site_index = cell * cell_site_count + interaction.site;
+                    auto& site = m_hamiltonian.interactions[site_index];
+                    site.u += interaction.u;
+                    site.mu_up -= interaction.mu_up_offset;
+                    site.mu_down -= interaction.mu_down_offset;
+                }
+            },
+            [&](parser::ParsedFreeformGeometry::Hopping const& hopping) {
+                Vector3d fractionary_shift_fp = m_lattice.sites[hopping.to].cartesian_position
+                    - (m_lattice.sites[hopping.from].cartesian_position + Vector3d { hopping.coordinate_delta });
+                fractionary_shift_fp = lattice_basis_inverse * fractionary_shift_fp;
+
+                Vector3i fractionary_shift = fractionary_shift_fp.cast<int>();
+
+                double badness = (fractionary_shift.cast<f64>() - fractionary_shift_fp).squaredNorm();
+
+                if (badness > epsilon) {
+                    diag.error(hopping.location,
+                        "distance {:.1e} (in supercell lattice basis) to the best candidate for the "
+                        "mentioned site is larger than allowed {:.1e} rounding error",
+                        sqrt(badness), sqrt(epsilon));
+                    issued_diagnostic = true;
+                    return;
+                }
+
+                for (int from_cell_index = 0; from_cell_index < cells_count; ++from_cell_index) {
+                    auto from_cell = m_lattice.primitive_cells_in_supercell[from_cell_index];
+                    auto to_cell = from_cell + fractionary_shift;
+
+                    Vector3i to_coordinates = supercell_basis_inverse * to_cell;
+                    bool should_negate_phase = false;
+                    for (int component = 0; component < 3; ++component) {
+                        int coordinate = to_coordinates[component];
+                        int coordinate_inside_supercell = coordinate % supercell_size;
+                        if (coordinate_inside_supercell < 0) {
+                            coordinate_inside_supercell += supercell_size;
+                        }
+                        to_coordinates[component] = coordinate_inside_supercell;
+
+                        int phase_power = (coordinate - coordinate_inside_supercell) / supercell_size;
+                        should_negate_phase ^= (phase_power * parameters.should_negate_phase[component]) & 1;
+                    }
+
+                    to_coordinates = m_lattice.supercell_fractionary_basis * to_coordinates / supercell_size;
+                    int to_cell_index = index_of_primitive_cell.at(to_coordinates);
+
+                    int from_site = from_cell_index * cell_site_count + hopping.from;
+                    int to_site = to_cell_index * cell_site_count + hopping.to;
+
+                    if (from_site == to_site) {
+                        diag.error(hopping.location,
+                            "hopping terms with equal endpoints in quotient of the lattice by "
+                            "supercell are not implemented, shift chemical potential instead");
+                        issued_diagnostic = true;
+                        return;
+                    }
+
+                    int phase_shift = should_negate_phase ? -1 : 1;
+
+                    m_hamiltonian.hoppings[0](from_site, to_site) += hopping.t_up * phase_shift;
+                    m_hamiltonian.hoppings[0](to_site, from_site) += hopping.t_up * phase_shift;
+                    m_hamiltonian.hoppings[1](to_site, from_site) += hopping.t_down * phase_shift;
+                    m_hamiltonian.hoppings[1](from_site, to_site) += hopping.t_down * phase_shift;
+                }
+            });
+
+        if (issued_diagnostic) {
+            return std::unexpected<parser::DiagnosedError> { {} };
+        }
+    }
 
     return {};
 }

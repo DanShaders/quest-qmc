@@ -16,7 +16,13 @@ DiagnosticOr<void> FreeformGeometryParametersParser::parse(ConfigParser& parser,
         return diag.error(location, "expected an array with 3 elements for bcond");
     }
     for (int i = 0; i < 3; ++i) {
-        m_parameters.phase_shift_for_supercell_vector[i] = phase_shift.value[i];
+        double element = phase_shift.value[i];
+        if (std::round(element) != element) {
+            return diag.error(phase_shift.locations[i],
+                "only integer multiples of pi for phase shifts on boundaries are allowed");
+        }
+        bool is_odd = std::fmod(phase_shift.value[i], 2) != 0;
+        m_parameters.should_negate_phase[i] = is_odd;
     }
     return {};
 }

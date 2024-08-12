@@ -12,6 +12,8 @@ struct ParsedFreeformGeometry {
     };
 
     struct Hopping {
+        SourceRange location;
+
         int from;
         int to;
         f64 coordinate_delta[3];

@@ -7,7 +7,7 @@ namespace dqmc::parser {
 struct ParsedFreeformGeometryParameters {
     f64 mu_up;
     f64 mu_down;
-    f64 phase_shift_for_supercell_vector[3];
+    bool should_negate_phase[3];
 };
 
 class FreeformGeometryParametersParser final : public ParametersParser {

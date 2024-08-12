@@ -38,6 +38,17 @@ struct Lattice {
     // (*) -- vectors are columns of the matrix
 };
 
+struct Hamiltonian {
+    struct OnSiteInteration {
+        f64 mu_up;
+        f64 mu_down;
+        f64 u;
+    };
+
+    MatrixXd hoppings[2];
+    std::vector<OnSiteInteration> interactions;
+};
+
 class FreeformGeometry {
 public:
     static parser::DiagnosticOr<FreeformGeometry> create(
@@ -46,6 +57,9 @@ public:
         parser::ParsedFreeformGeometryParameters const& parameters);
 
     void legacy_compatible_format_into(std::ostream& stream) const;
+
+    Lattice const& lattice() const { return m_lattice; }
+    Hamiltonian const& hamiltonian() const { return m_hamiltonian; }
 
 private:
     FreeformGeometry() = default;
@@ -56,6 +70,7 @@ private:
         parser::ParsedFreeformGeometryParameters const& parameters);
 
     Lattice m_lattice;
+    Hamiltonian m_hamiltonian;
 };
 
 } // namespace dqmc::sema

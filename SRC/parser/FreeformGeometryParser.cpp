@@ -265,6 +265,7 @@ DiagnosticOr<void> FreeformGeometryParser::parse_hamiltonian()
             }
 
             m_geometry.hamiltonian.emplace_back(ParsedFreeformGeometry::Hopping {
+                .location = to_token,
                 .from = from,
                 .to = to,
                 .coordinate_delta = { delta[0], delta[1], delta[2] },
