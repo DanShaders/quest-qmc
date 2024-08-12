@@ -218,6 +218,9 @@ parser::DiagnosticOr<void> initialize_hamiltonian(
             - (lattice.sites[hopping.from].cartesian_position + Vector3d { hopping.coordinate_delta });
         fractionary_shift_fp = lattice_basis_inverse * fractionary_shift_fp;
 
+        // FIXME: We should not allow shifts that have more dimensions than the primary cell lattice
+        //        itself. We should also split dimension number of the lattice and of the points
+        //        inside it.
         Vector3i fractionary_shift = fractionary_shift_fp.cast<int>();
 
         double badness = (fractionary_shift.cast<f64>() - fractionary_shift_fp).squaredNorm();
