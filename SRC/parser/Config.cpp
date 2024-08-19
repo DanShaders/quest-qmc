@@ -1,4 +1,5 @@
 #include "SRC/parser/Config.h"
+#include "SRC/common/Ascii.h"
 
 namespace dqmc::parser {
 
@@ -18,13 +19,7 @@ DiagnosticOr<void> ConfigParser::parse()
             break;
         }
         auto key = TRY(line->read_string("key"));
-        std::ranges::transform(key.value, key.value.begin(), [](char c) -> char {
-            if (c >= 'A' && c <= 'Z') {
-                return c + ('a' - 'A');
-            } else {
-                return c;
-            }
-        });
+        std::ranges::transform(key.value, key.value.begin(), ascii_to_lower);
         TRY(line->read_equals());
         m_parameters.emplace(key.value, Parameter { .lexer = std::move(*line) });
     }

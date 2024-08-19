@@ -39,6 +39,16 @@ public:
 
     SourceRange combined_with(SourceRange other);
 
+    SourceRange substr(size_t start, size_t length = std::string_view::npos)
+    {
+        VERIFY(start <= m_length);
+        if (length == std::string_view::npos) {
+            length = m_length - start;
+        }
+        VERIFY(length <= m_length && start <= m_length - length);
+        return { m_start + start, length };
+    }
+
 private:
     static constexpr size_t eof_marker = std::numeric_limits<size_t>::max();
 

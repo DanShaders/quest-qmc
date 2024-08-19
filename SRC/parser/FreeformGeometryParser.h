@@ -28,6 +28,22 @@ struct ParsedFreeformGeometry {
         f64 u;
     };
 
+    struct Rotation {
+        int order;
+        f64 center[3];
+        f64 direction[3];
+        bool is_rotoreflection;
+    };
+
+    struct Reflection {
+        f64 point[3];
+        f64 normal[3];
+    };
+
+    struct Inversion {
+        f64 center[3];
+    };
+
     int dimensions;
 
     // TODO: Check if we can just use 1 for basis and fake 1e3 in
@@ -49,6 +65,8 @@ struct ParsedFreeformGeometry {
     std::vector<PrimitiveCellSite> primitive_cell_sites;
 
     std::vector<std::variant<Hopping, OnSiteInteraction>> hamiltonian;
+
+    std::vector<std::variant<Rotation, Reflection, Inversion>> symmetries;
 };
 
 class FreeformGeometryParser {
@@ -64,7 +82,7 @@ private:
         SupercellBasis,
         PrimitiveCellSites,
         Hamiltonian,
-        SYMM,
+        Symmetry,
         PHASE,
         BONDS,
         PAIR,
@@ -96,6 +114,7 @@ private:
     DiagnosticOr<void> parse_supercell_basis();
     DiagnosticOr<void> parse_primitive_cell_sites();
     DiagnosticOr<void> parse_hamiltonian();
+    DiagnosticOr<void> parse_symmetries();
 
     std::shared_ptr<FileView> m_file;
     std::string_view m_data;
