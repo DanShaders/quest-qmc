@@ -8,7 +8,8 @@ namespace dqmc::parser {
 struct ParsedFreeformGeometry {
     struct PrimitiveCellSite {
         std::string label;
-        f64 displacement[3] = {};
+        f64 displacement[3];
+        SourceRange location;
     };
 
     struct Hopping {
@@ -44,6 +45,13 @@ struct ParsedFreeformGeometry {
         f64 center[3];
     };
 
+    using SymmetryAction = std::variant<Rotation, Reflection, Inversion>;
+
+    struct Symmetry {
+        SourceRange location;
+        SymmetryAction action;
+    };
+
     int dimensions;
 
     // TODO: Check if we can just use 1 for basis and fake 1e3 in
@@ -66,7 +74,7 @@ struct ParsedFreeformGeometry {
 
     std::vector<std::variant<Hopping, OnSiteInteraction>> hamiltonian;
 
-    std::vector<std::variant<Rotation, Reflection, Inversion>> symmetries;
+    std::vector<Symmetry> symmetries;
 };
 
 class FreeformGeometryParser {

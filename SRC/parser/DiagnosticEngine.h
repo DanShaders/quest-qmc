@@ -49,6 +49,8 @@ public:
         return { m_start + start, length };
     }
 
+    SourceRange first_letter() { return substr(0, 1); }
+
 private:
     static constexpr size_t eof_marker = std::numeric_limits<size_t>::max();
 

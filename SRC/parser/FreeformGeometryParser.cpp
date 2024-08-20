@@ -201,6 +201,7 @@ DiagnosticOr<void> FreeformGeometryParser::parse_primitive_cell_sites()
 
         auto [label, label_token] = TRY(line->read_string("primitive cell site label"));
         site.label = std::move(label);
+        site.location = label_token.first_letter();
         for (size_t i = 0; i < 3; ++i) {
             auto name = std::format("{} site displacement {}-component", label, component_names[i]);
             auto [value, token] = TRY(line->read_double(name));
@@ -295,59 +296,55 @@ DiagnosticOr<void> FreeformGeometryParser::parse_symmetries()
         auto [type, type_token] = TRY(line->read_string("symmetry type"));
         VERIFY(!type.empty());
 
-        bool type_understood = TRY([&] -> DiagnosticOr<bool> {
-            char c = ascii_to_lower(type[0]);
-            if (c == 'c' || c == 's') {
-                if (type.size() != 2 || !std::isdigit(type[1])) {
-                    return false;
-                }
-                int order = type[1] - '0';
-                if (order != 2 && order != 3 && order != 4 && order != 6) {
-                    return m_diag.error(type_token.substr(1),
-                        "rotational symmetry order must be 2, 3, 4, or 6");
-                }
-                auto x = TRY(line->read_double("x-coordinate of a point on the axis")).value;
-                auto y = TRY(line->read_double("y-coordinate of a point on the axis")).value;
-                auto z = TRY(line->read_double("z-coordinate of a point on the axis")).value;
-                auto dx = TRY(line->read_double("x-coordinate of axis direction vector")).value;
-                auto dy = TRY(line->read_double("y-coordinate of axis direction vector")).value;
-                auto dz = TRY(line->read_double("z-coordinate of axis direction vector")).value;
-                m_geometry.symmetries.emplace_back(ParsedFreeformGeometry::Rotation {
-                    .order = order,
-                    .center = { x, y, z },
-                    .direction = { dx, dy, dz },
-                    .is_rotoreflection = (c == 's'),
-                });
-                return true;
-            } else if (c == 'd') {
-                auto x = TRY(line->read_double("x-coordinate of a point on the reflection plane")).value;
-                auto y = TRY(line->read_double("y-coordinate of a point on the reflection plane")).value;
-                auto z = TRY(line->read_double("z-coordinate of a point on the reflection plane")).value;
-                auto dx = TRY(line->read_double("x-coordinate of reflection plane normal vector")).value;
-                auto dy = TRY(line->read_double("y-coordinate of reflection plane normal vector")).value;
-                auto dz = TRY(line->read_double("z-coordinate of reflection plane normal vector")).value;
-                m_geometry.symmetries.emplace_back(ParsedFreeformGeometry::Reflection {
-                    .point = { x, y, z },
-                    .normal = { dx, dy, dz },
-                });
-                return true;
-            } else if (c == 'i') {
-                auto x = TRY(line->read_double("x-coordinate of inversion point")).value;
-                auto y = TRY(line->read_double("y-coordinate of inversion point")).value;
-                auto z = TRY(line->read_double("z-coordinate of inversion point")).value;
-                m_geometry.symmetries.emplace_back(ParsedFreeformGeometry::Inversion {
-                    .center = { x, y, z },
-                });
-                return true;
-            }
-            return false;
-        }());
+        ParsedFreeformGeometry::SymmetryAction action;
 
-        if (!type_understood) {
+        char c = ascii_to_lower(type[0]);
+        if ((c == 'c' || c == 's') && (type.size() == 2 && std::isdigit(type[1]))) {
+            int order = type[1] - '0';
+            if (order != 2 && order != 3 && order != 4 && order != 6) {
+                return m_diag.error(type_token.substr(1),
+                    "rotational symmetry order must be 2, 3, 4, or 6");
+            }
+            auto x = TRY(line->read_double("x-coordinate of a point on the axis")).value;
+            auto y = TRY(line->read_double("y-coordinate of a point on the axis")).value;
+            auto z = TRY(line->read_double("z-coordinate of a point on the axis")).value;
+            auto dx = TRY(line->read_double("x-coordinate of axis direction vector")).value;
+            auto dy = TRY(line->read_double("y-coordinate of axis direction vector")).value;
+            auto dz = TRY(line->read_double("z-coordinate of axis direction vector")).value;
+            action = ParsedFreeformGeometry::Rotation {
+                .order = order,
+                .center = { x, y, z },
+                .direction = { dx, dy, dz },
+                .is_rotoreflection = (c == 's'),
+            };
+        } else if (c == 'd') {
+            auto x = TRY(line->read_double("x-coordinate of a point on the reflection plane")).value;
+            auto y = TRY(line->read_double("y-coordinate of a point on the reflection plane")).value;
+            auto z = TRY(line->read_double("z-coordinate of a point on the reflection plane")).value;
+            auto dx = TRY(line->read_double("x-coordinate of reflection plane normal vector")).value;
+            auto dy = TRY(line->read_double("y-coordinate of reflection plane normal vector")).value;
+            auto dz = TRY(line->read_double("z-coordinate of reflection plane normal vector")).value;
+            action = ParsedFreeformGeometry::Reflection {
+                .point = { x, y, z },
+                .normal = { dx, dy, dz },
+            };
+        } else if (c == 'i') {
+            auto x = TRY(line->read_double("x-coordinate of inversion point")).value;
+            auto y = TRY(line->read_double("y-coordinate of inversion point")).value;
+            auto z = TRY(line->read_double("z-coordinate of inversion point")).value;
+            action = ParsedFreeformGeometry::Inversion {
+                .center = { x, y, z },
+            };
+        } else {
             return m_diag.error(type_token, "unrecognized symmetry type '{}'", type);
         }
 
         TRY(line->expect_eof());
+
+        m_geometry.symmetries.emplace_back(ParsedFreeformGeometry::Symmetry {
+            .location = type_token.first_letter(),
+            .action = std::move(action),
+        });
     }
 
     return {};
