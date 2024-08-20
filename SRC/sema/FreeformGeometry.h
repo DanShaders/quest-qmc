@@ -1,15 +1,11 @@
 #pragma once
 
-#include <Eigen/Core>
-
+#include "SRC/common/Eigen.h"
 #include "SRC/common/Types.h"
 #include "SRC/parser/DiagnosticEngine.h"
 #include "SRC/parser/Forward.h"
 
 namespace dqmc::sema {
-
-using Eigen::Matrix3d, Eigen::Matrix3i, Eigen::MatrixXd,
-    Eigen::Vector3d, Eigen::Vector3i;
 
 inline constexpr f64 epsilon = 1e-12;
 
@@ -20,6 +16,9 @@ struct Site {
 };
 
 struct Lattice {
+    // Formats structure the same way as old Fortran code did. Useful for debugging purposes.
+    void legacy_compatible_format_into(std::ostream& out) const;
+
     int dimensions;
     // Cartesian components of primitive cell (*)
     Matrix3d basis;
@@ -49,28 +48,33 @@ struct Hamiltonian {
     std::vector<OnSiteInteration> interactions;
 };
 
-class FreeformGeometry {
-public:
-    static parser::DiagnosticOr<FreeformGeometry> create(
-        parser::DiagnosticEngine& diag,
-        parser::ParsedFreeformGeometry const& geometry,
-        parser::ParsedFreeformGeometryParameters const& parameters);
+struct Context {
+    parser::DiagnosticEngine& diag;
+    parser::ParsedFreeformGeometry const& geometry;
+    parser::ParsedFreeformGeometryParameters const& parameters;
 
-    void legacy_compatible_format_into(std::ostream& stream) const;
-
-    Lattice const& lattice() const { return m_lattice; }
-    Hamiltonian const& hamiltonian() const { return m_hamiltonian; }
-
-private:
-    FreeformGeometry() = default;
-
-    parser::DiagnosticOr<void> initialize(
-        parser::DiagnosticEngine& diag,
-        parser::ParsedFreeformGeometry const& geometry,
-        parser::ParsedFreeformGeometryParameters const& parameters);
-
-    Lattice m_lattice;
-    Hamiltonian m_hamiltonian;
+    Lattice& lattice;
+    Hamiltonian& hamiltonian;
 };
+
+parser::DiagnosticOr<void> build_lattice(Context& ctx);
+parser::DiagnosticOr<void> build_hamiltonian(Context& ctx);
+
+struct Geometry {
+    Lattice lattice;
+    Hamiltonian hamiltonian;
+};
+
+inline parser::DiagnosticOr<Geometry> build_geometry(
+    parser::DiagnosticEngine& diag,
+    parser::ParsedFreeformGeometry const& geometry,
+    parser::ParsedFreeformGeometryParameters const& parameters)
+{
+    Geometry result;
+    Context ctx { diag, geometry, parameters, result.lattice, result.hamiltonian };
+    TRY(build_lattice(ctx));
+    TRY(build_hamiltonian(ctx));
+    return result;
+}
 
 } // namespace dqmc::sema

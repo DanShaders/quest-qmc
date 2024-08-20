@@ -33,6 +33,7 @@ set(SOURCES
     binding.F90
     config.cpp
 
+    common/Eigen.cpp
     common/Error.cpp
     common/Filesystem.cpp
     parser/Config.cpp
@@ -41,7 +42,8 @@ set(SOURCES
     parser/FreeformGeometryParser.cpp
     parser/Lexer.cpp
     parser/LineLexer.cpp
-    sema/FreeformGeometry.cpp
+    sema/Hamiltonian.cpp
+    sema/Lattice.cpp
 
     blaslapack.c++
     computeg.c++
