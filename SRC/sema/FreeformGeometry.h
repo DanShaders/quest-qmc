@@ -16,6 +16,15 @@ struct Site {
 };
 
 struct Lattice {
+    struct CellLookupResult {
+        int primitive_cell;
+        Vector3i supercell;
+    };
+
+    // Returns struct `result` such that `primitive_cells_in_supercell[result.primitive_cell] +
+    // supercell_fractionary_basis * result.supercell == coords`.
+    CellLookupResult fractional_coords_to_cell(Vector3i const& coords) const;
+
     // Formats structure the same way as old Fortran code did. Useful for debugging purposes.
     void legacy_compatible_format_into(std::ostream& out) const;
 
@@ -33,6 +42,13 @@ struct Lattice {
     std::vector<Site> primitive_cell_sites;
 
     std::vector<Site> sites;
+
+    // abs(det(supercell_fractionary_basis)), same as primitive_cells_in_supercell.size()
+    int supercell_size;
+    // supercell_fractionary_basis^(-1) * supercell_size
+    Matrix3i supercell_basis_inverse;
+    // Map from primitive_cells_in_supercell elements into their index
+    std::map<Vector3i, int, Vector3iComparator> cell_by_fractional_coords;
 
     // (*) -- vectors are columns of the matrix
 };

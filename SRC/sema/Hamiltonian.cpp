@@ -14,11 +14,6 @@ struct HamiltonianBuildingContext : Context {
     HamiltonianBuildingContext(Context& ctx)
         : Context(ctx)
     {
-        std::tie(supercell_size, supercell_basis_inverse) = compute_premultiplied_inverse(lattice.supercell_fractionary_basis);
-
-        for (int i = 0; i < cells_count; ++i) {
-            index_of_primitive_cell[lattice.primitive_cells_in_supercell[i]] = i;
-        }
     }
 
     void add_on_site_interaction(RawGeometry::OnSiteInteraction const& interaction);
@@ -29,11 +24,6 @@ struct HamiltonianBuildingContext : Context {
     int cell_site_count = lattice.primitive_cell_sites.size();
     int total_site_count = lattice.sites.size();
     int cells_count = lattice.primitive_cells_in_supercell.size();
-
-    std::map<Vector3i, int, Vector3iComparator> index_of_primitive_cell;
-
-    int supercell_size;
-    Matrix3i supercell_basis_inverse;
 };
 
 // Adds an interaction term (on-site U and chemical potential shifts) to the hamiltonian.
@@ -73,27 +63,16 @@ parser::DiagnosticOr<void> HamiltonianBuildingContext::add_hopping(RawGeometry::
 
     for (int from_cell_index = 0; from_cell_index < cells_count; ++from_cell_index) {
         // Next, for every primitive cell in a supercell, we figure out the primitive cell
-        // to which fractionary_shift would lead us. To do this elegantly and without floating-point
-        // rounding errors, we switch to supercell basis scaled by `supercell_size`.
+        // to which fractionary_shift would lead us.
         auto from_cell = lattice.primitive_cells_in_supercell[from_cell_index];
         auto to_cell = from_cell + fractionary_shift;
 
-        Vector3i to_coordinates = supercell_basis_inverse * to_cell;
+        auto [to_cell_index, supercell] = lattice.fractional_coords_to_cell(to_cell);
         bool should_negate_phase = false;
-        for (int component = 0; component < 3; ++component) {
-            int coordinate = to_coordinates[component];
-            int coordinate_inside_supercell = coordinate % supercell_size;
-            if (coordinate_inside_supercell < 0) {
-                coordinate_inside_supercell += supercell_size;
-            }
-            to_coordinates[component] = coordinate_inside_supercell;
-
-            int phase_power = (coordinate - coordinate_inside_supercell) / supercell_size;
-            should_negate_phase ^= (phase_power * parameters.should_negate_phase[component]) & 1;
+        for (int i = 0; i < 3; ++i) {
+            int phase_power = supercell[i];
+            should_negate_phase ^= (phase_power * parameters.should_negate_phase[i]) & 1;
         }
-
-        to_coordinates = lattice.supercell_fractionary_basis * to_coordinates / supercell_size;
-        int to_cell_index = index_of_primitive_cell.at(to_coordinates);
 
         // Lastly, we compute site indices and add hoppings to the hamiltonian.
         int from_site = from_cell_index * cell_site_count + hopping.from;

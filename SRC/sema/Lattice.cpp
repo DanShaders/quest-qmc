@@ -1,6 +1,7 @@
 #include <Eigen/LU>
 #include <set>
 
+#include "SRC/common/Enumerate.h"
 #include "SRC/parser/FreeformGeometryParser.h"
 #include "SRC/sema/FreeformGeometry.h"
 
@@ -14,18 +15,19 @@ struct LatticeBuildingContext : Context {
     {
     }
 
-    std::vector<Vector3i> compute_primitive_cells_in_supercell();
-    std::vector<Site> compute_sites();
+    void compute_primitive_cells_in_supercell();
+    void compute_sites();
     parser::DiagnosticOr<void> build_lattice();
 };
 
 // Computes primitive cells (points with integer fractionary coordinates) in a parallelogram
 // specified by supercell basis.
-std::vector<Vector3i> LatticeBuildingContext::compute_primitive_cells_in_supercell()
+void LatticeBuildingContext::compute_primitive_cells_in_supercell()
 {
     // Compute the number of points with integer fractionary coordinates in a supercell. These will
     // be precisely points we are interested to find explicitly.
-    auto [det, supercell_basis_inverse] = compute_premultiplied_inverse(lattice.supercell_fractionary_basis);
+    std::tie(lattice.supercell_size, lattice.supercell_basis_inverse)
+        = compute_premultiplied_inverse(lattice.supercell_fractionary_basis);
 
     std::vector<Vector3i> result = { { 0, 0, 0 } };
     std::set<Vector3i, Vector3iComparator> seen_vertices;
@@ -44,29 +46,27 @@ std::vector<Vector3i> LatticeBuildingContext::compute_primitive_cells_in_superce
         auto site = result[i];
 
         for (int direction = 0; direction < 3; ++direction) {
-            for (int sign : { -1, 1 }) {
-                Vector3i neighbor = site + supercell_basis_inverse.col(direction) * sign;
+            Vector3i neighbor = site + lattice.supercell_basis_inverse.col(direction);
 
-                for (int component = 0; component < 3; ++component) {
-                    int& coordinate = neighbor[component];
-                    coordinate %= det;
-                    if (coordinate < 0) {
-                        coordinate += det;
-                    }
+            for (int component = 0; component < 3; ++component) {
+                int& coordinate = neighbor[component];
+                coordinate %= lattice.supercell_size;
+                if (coordinate < 0) {
+                    coordinate += lattice.supercell_size;
                 }
+            }
 
-                if (!seen_vertices.contains(neighbor)) {
-                    seen_vertices.insert(neighbor);
-                    result.push_back(neighbor);
-                }
+            if (!seen_vertices.contains(neighbor)) {
+                seen_vertices.insert(neighbor);
+                result.push_back(neighbor);
             }
         }
     }
 
-    VERIFY(result.size() == det);
+    VERIFY(result.size() == lattice.supercell_size);
 
     for (auto& primitive_cell : result) {
-        primitive_cell = lattice.supercell_fractionary_basis * primitive_cell / det;
+        primitive_cell = lattice.supercell_fractionary_basis * primitive_cell / lattice.supercell_size;
     }
 
     // Order primitive cells in the same way as in the legacy code.
@@ -74,12 +74,16 @@ std::vector<Vector3i> LatticeBuildingContext::compute_primitive_cells_in_superce
         return std::tie(a[2], a[1], a[0]) < std::tie(b[2], b[1], b[0]);
     });
 
-    return result;
+    lattice.primitive_cells_in_supercell = result;
+
+    for (auto [i, site] : enumerate(lattice.primitive_cells_in_supercell)) {
+        lattice.cell_by_fractional_coords[site] = i;
+    }
 }
 
 // Computes lattice sites by copying and translating sites specified in #ORB section to all
 // primitive cells found in compute_primitive_cells_in_supercell.
-std::vector<Site> LatticeBuildingContext::compute_sites()
+void LatticeBuildingContext::compute_sites()
 {
     auto translate = [&](Site const& site, Vector3i const& translation) {
         Vector3d fractionary_coordinates = site.fractionary_position + translation.cast<f64>();
@@ -87,13 +91,11 @@ std::vector<Site> LatticeBuildingContext::compute_sites()
         return Site { site.label, cartesian_coordinates, fractionary_coordinates };
     };
 
-    std::vector<Site> result;
     for (Vector3i const& cell : lattice.primitive_cells_in_supercell) {
         for (Site const& site : lattice.primitive_cell_sites) {
-            result.push_back(translate(site, cell));
+            lattice.sites.push_back(translate(site, cell));
         }
     }
-    return result;
 }
 
 // Populates fields of `Context::lattice` field.
@@ -140,7 +142,7 @@ parser::DiagnosticOr<void> LatticeBuildingContext::build_lattice()
     lattice.supercell_cartesian_basis = lattice.basis * lattice.supercell_fractionary_basis.cast<f64>();
 
     // primitive_cells_in_supercell
-    lattice.primitive_cells_in_supercell = compute_primitive_cells_in_supercell();
+    compute_primitive_cells_in_supercell();
 
     // primitive_cell_sites
     Matrix3d lattice_basis_inverse = lattice.basis.inverse();
@@ -153,7 +155,7 @@ parser::DiagnosticOr<void> LatticeBuildingContext::build_lattice()
     }
 
     // sites
-    lattice.sites = compute_sites();
+    compute_sites();
 
     return {};
 }
@@ -163,6 +165,26 @@ parser::DiagnosticOr<void> LatticeBuildingContext::build_lattice()
 parser::DiagnosticOr<void> build_lattice(Context& ctx)
 {
     return LatticeBuildingContext { ctx }.build_lattice();
+}
+
+auto Lattice::fractional_coords_to_cell(Vector3i const& coords) const -> CellLookupResult
+{
+    CellLookupResult result;
+
+    Vector3i coords_to_lookup = supercell_basis_inverse * coords;
+    for (int i = 0; i < 3; ++i) {
+        int component = coords_to_lookup[i];
+        int coordinate_inside_supercell = component % supercell_size;
+        if (coordinate_inside_supercell < 0) {
+            coordinate_inside_supercell += supercell_size;
+        }
+        result.supercell[i] = (coords_to_lookup[i] - coordinate_inside_supercell) / supercell_size;
+        coords_to_lookup[i] = coordinate_inside_supercell;
+    }
+
+    result.primitive_cell = cell_by_fractional_coords.at(coords_to_lookup);
+
+    return result;
 }
 
 void Lattice::legacy_compatible_format_into(std::ostream& stream) const
