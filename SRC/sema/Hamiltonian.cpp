@@ -1,5 +1,6 @@
 #include <Eigen/LU>
 
+#include "SRC/common/Enumerate.h"
 #include "SRC/parser/FreeformGeometryParametersParser.h"
 #include "SRC/parser/FreeformGeometryParser.h"
 #include "SRC/sema/FreeformGeometry.h"
@@ -61,16 +62,14 @@ parser::DiagnosticOr<void> HamiltonianBuildingContext::add_hopping(RawGeometry::
             sqrt(badness), sqrt(epsilon));
     }
 
-    for (int from_cell_index = 0; from_cell_index < cells_count; ++from_cell_index) {
+    for (auto [from_cell_index, from_cell] : enumerate(lattice.primitive_cells_in_supercell)) {
         // Next, for every primitive cell in a supercell, we figure out the primitive cell
         // to which fractional_shift would lead us.
-        auto from_cell = lattice.primitive_cells_in_supercell[from_cell_index];
         auto to_cell = from_cell + fractional_shift;
 
         auto [to_cell_index, supercell] = lattice.fractional_coords_to_cell(to_cell);
         bool should_negate_phase = false;
-        for (int i = 0; i < 3; ++i) {
-            int phase_power = supercell[i];
+        for (auto [i, phase_power] : enumerate(supercell)) {
             should_negate_phase ^= (phase_power * parameters.should_negate_phase[i]) & 1;
         }
 

@@ -172,14 +172,13 @@ auto Lattice::fractional_coords_to_cell(Vector3i const& coords) const -> CellLoo
     CellLookupResult result;
 
     Vector3i coords_to_lookup = supercell_basis_inverse * coords;
-    for (int i = 0; i < 3; ++i) {
-        int component = coords_to_lookup[i];
+    for (auto [i, component] : enumerate(coords_to_lookup)) {
         int coordinate_inside_supercell = component % supercell_size;
         if (coordinate_inside_supercell < 0) {
             coordinate_inside_supercell += supercell_size;
         }
         result.supercell[i] = (coords_to_lookup[i] - coordinate_inside_supercell) / supercell_size;
-        coords_to_lookup[i] = coordinate_inside_supercell;
+        component = coordinate_inside_supercell;
     }
 
     result.primitive_cell = cell_by_fractional_coords.at(coords_to_lookup);
@@ -193,8 +192,8 @@ void Lattice::legacy_compatible_format_into(std::ostream& stream) const
                        " Basic real space geometry info\n"
                        "\n"
                        " Crystal atomic basis\n");
-    for (int i = 0; i < primitive_cell_sites.size(); ++i) {
-        auto const& coords = primitive_cell_sites[i].fractional_position;
+    for (auto [i, site] : enumerate(primitive_cell_sites)) {
+        auto const& coords = site.fractional_position;
         std::println(stream, "{:3}{:14.7f}{:14.7f}{:14.7f}", i, coords[0], coords[1], coords[2]);
     }
 
@@ -233,8 +232,7 @@ void Lattice::legacy_compatible_format_into(std::ostream& stream) const
     std::print(stream, " Number of orbitals in primitive cell: {:12}\n", primitive_cell_sites.size());
     std::print(stream, " Total number of orbitals:             {:12}\n", sites.size());
     std::print(stream, " index  label   type       X           Y         Z   \n");
-    for (int i = 0; i < sites.size(); ++i) {
-        auto const& site = sites[i];
+    for (auto [i, site] : enumerate(sites)) {
         auto const& coords = site.cartesian_position;
         std::print(stream, "{:3} {:3} {:3}{:14.5f}{:14.5f}{:14.5f}\n",
             i, site.label, i % primitive_cell_sites.size(), coords[0], coords[1], coords[2]);
