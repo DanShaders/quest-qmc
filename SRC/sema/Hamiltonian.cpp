@@ -43,16 +43,16 @@ parser::DiagnosticOr<void> HamiltonianBuildingContext::add_hopping(RawGeometry::
 {
     // First, we figure out the sum of lattice basis vectors (modulo superlattice) that gives the
     // delta specified.
-    Vector3d fractionary_shift_fp = lattice.sites[hopping.to].cartesian_position
+    Vector3d fractional_shift_fp = lattice.sites[hopping.to].cartesian_position
         - (lattice.sites[hopping.from].cartesian_position + Vector3d { hopping.coordinate_delta });
-    fractionary_shift_fp = lattice_basis_inverse * fractionary_shift_fp;
+    fractional_shift_fp = lattice_basis_inverse * fractional_shift_fp;
 
     // FIXME: We should not allow shifts that have more dimensions than the primary cell lattice
     //        itself. We should also split dimension number of the lattice and of the points
     //        inside it.
-    Vector3i fractionary_shift = fractionary_shift_fp.cast<int>();
+    Vector3i fractional_shift = fractional_shift_fp.cast<int>();
 
-    double badness = (fractionary_shift.cast<f64>() - fractionary_shift_fp).squaredNorm();
+    double badness = (fractional_shift.cast<f64>() - fractional_shift_fp).squaredNorm();
 
     if (badness > epsilon) {
         return diag.error(hopping.location,
@@ -63,9 +63,9 @@ parser::DiagnosticOr<void> HamiltonianBuildingContext::add_hopping(RawGeometry::
 
     for (int from_cell_index = 0; from_cell_index < cells_count; ++from_cell_index) {
         // Next, for every primitive cell in a supercell, we figure out the primitive cell
-        // to which fractionary_shift would lead us.
+        // to which fractional_shift would lead us.
         auto from_cell = lattice.primitive_cells_in_supercell[from_cell_index];
-        auto to_cell = from_cell + fractionary_shift;
+        auto to_cell = from_cell + fractional_shift;
 
         auto [to_cell_index, supercell] = lattice.fractional_coords_to_cell(to_cell);
         bool should_negate_phase = false;

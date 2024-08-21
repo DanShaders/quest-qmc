@@ -12,7 +12,7 @@ inline constexpr f64 epsilon = 1e-12;
 struct Site {
     std::string label;
     Vector3d cartesian_position;
-    Vector3d fractionary_position;
+    Vector3d fractional_position;
 };
 
 struct Lattice {
@@ -22,7 +22,7 @@ struct Lattice {
     };
 
     // Returns struct `result` such that `primitive_cells_in_supercell[result.primitive_cell] +
-    // supercell_fractionary_basis * result.supercell == coords`.
+    // supercell_fractional_basis * result.supercell == coords`.
     CellLookupResult fractional_coords_to_cell(Vector3i const& coords) const;
 
     // Formats structure the same way as old Fortran code did. Useful for debugging purposes.
@@ -34,8 +34,8 @@ struct Lattice {
 
     // Cartesian components of supercell (*)
     Matrix3d supercell_cartesian_basis;
-    // Fractionary components of supercell (*)
-    Matrix3i supercell_fractionary_basis;
+    // Fractional components of supercell (*)
+    Matrix3i supercell_fractional_basis;
 
     std::vector<Vector3i> primitive_cells_in_supercell;
 
@@ -43,9 +43,9 @@ struct Lattice {
 
     std::vector<Site> sites;
 
-    // abs(det(supercell_fractionary_basis)), same as primitive_cells_in_supercell.size()
+    // abs(det(supercell_fractional_basis)), same as primitive_cells_in_supercell.size()
     int supercell_size;
-    // supercell_fractionary_basis^(-1) * supercell_size
+    // supercell_fractional_basis^(-1) * supercell_size
     Matrix3i supercell_basis_inverse;
     // Map from primitive_cells_in_supercell elements into their index
     std::map<Vector3i, int, Vector3iComparator> cell_by_fractional_coords;

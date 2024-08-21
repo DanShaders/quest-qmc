@@ -20,28 +20,28 @@ struct LatticeBuildingContext : Context {
     parser::DiagnosticOr<void> build_lattice();
 };
 
-// Computes primitive cells (points with integer fractionary coordinates) in a parallelogram
+// Computes primitive cells (points with integer fractional coordinates) in a parallelogram
 // specified by supercell basis.
 void LatticeBuildingContext::compute_primitive_cells_in_supercell()
 {
-    // Compute the number of points with integer fractionary coordinates in a supercell. These will
+    // Compute the number of points with integer fractional coordinates in a supercell. These will
     // be precisely points we are interested to find explicitly.
     std::tie(lattice.supercell_size, lattice.supercell_basis_inverse)
-        = compute_premultiplied_inverse(lattice.supercell_fractionary_basis);
+        = compute_premultiplied_inverse(lattice.supercell_fractional_basis);
 
     std::vector<Vector3i> result = { { 0, 0, 0 } };
     std::set<Vector3i, Vector3iComparator> seen_vertices;
     seen_vertices.emplace(0, 0, 0);
 
     // To find points themselves, we want to do BFS on the graph where vertices are points with
-    // integer fractionary coordinates and edges connect neighboring (distance = 1) points. This
+    // integer fractional coordinates and edges connect neighboring (distance = 1) points. This
     // simple algorithm would have worked if integer points were always connected in every possible
     // supercell. However, this is not the case (consider basis {(3, 1, 0), (5, 1, 0), (0, 0, 1)}).
     // Fortunately, there is an easy fix: if one uses a quotient of the full (infinite) primary
     // lattice graph under equivalence classes induced by superlattice, then every equivalence class
-    // (and, therefore, every integer fractionary point) will be reached. In practice, this means
+    // (and, therefore, every integer fractional point) will be reached. In practice, this means
     // that if step out of the supercell when considering an edge, we apply a linear combination of
-    /// supercell basis vectors to the point to get back into the supercell.
+    // supercell basis vectors to the point to get back into the supercell.
     for (size_t i = 0; i < result.size(); ++i) {
         auto site = result[i];
 
@@ -66,7 +66,7 @@ void LatticeBuildingContext::compute_primitive_cells_in_supercell()
     VERIFY(result.size() == lattice.supercell_size);
 
     for (auto& primitive_cell : result) {
-        primitive_cell = lattice.supercell_fractionary_basis * primitive_cell / lattice.supercell_size;
+        primitive_cell = lattice.supercell_fractional_basis * primitive_cell / lattice.supercell_size;
     }
 
     // Order primitive cells in the same way as in the legacy code.
@@ -86,9 +86,9 @@ void LatticeBuildingContext::compute_primitive_cells_in_supercell()
 void LatticeBuildingContext::compute_sites()
 {
     auto translate = [&](Site const& site, Vector3i const& translation) {
-        Vector3d fractionary_coordinates = site.fractionary_position + translation.cast<f64>();
-        Vector3d cartesian_coordinates = lattice.basis * fractionary_coordinates;
-        return Site { site.label, cartesian_coordinates, fractionary_coordinates };
+        Vector3d fractional_coordinates = site.fractional_position + translation.cast<f64>();
+        Vector3d cartesian_coordinates = lattice.basis * fractional_coordinates;
+        return Site { site.label, cartesian_coordinates, fractional_coordinates };
     };
 
     for (Vector3i const& cell : lattice.primitive_cells_in_supercell) {
@@ -122,24 +122,24 @@ parser::DiagnosticOr<void> LatticeBuildingContext::build_lattice()
             "lattice basis is not linearly independent");
     }
 
-    // supercell_fractionary_basis
+    // supercell_fractional_basis
     for (int i = 0; i < 3; ++i) {
         for (int j = 0; j < 3; ++j) {
             int coefficient = geometry.supercell_basis[i][j];
-            lattice.supercell_fractionary_basis(j, i) = coefficient;
+            lattice.supercell_fractional_basis(j, i) = coefficient;
             if (i >= dims || j >= dims) {
                 VERIFY((i == j && coefficient == 1) || (i != j && coefficient == 0));
             }
         }
     }
 
-    if (lattice.supercell_fractionary_basis.determinant() == 0) {
+    if (lattice.supercell_fractional_basis.determinant() == 0) {
         return diag.error(geometry.supercell_basis_location,
             "supercell does not contain any primary cells");
     }
 
     // supercell_cartesian_basis
-    lattice.supercell_cartesian_basis = lattice.basis * lattice.supercell_fractionary_basis.cast<f64>();
+    lattice.supercell_cartesian_basis = lattice.basis * lattice.supercell_fractional_basis.cast<f64>();
 
     // primitive_cells_in_supercell
     compute_primitive_cells_in_supercell();
@@ -194,7 +194,7 @@ void Lattice::legacy_compatible_format_into(std::ostream& stream) const
                        "\n"
                        " Crystal atomic basis\n");
     for (int i = 0; i < primitive_cell_sites.size(); ++i) {
-        auto const& coords = primitive_cell_sites[i].fractionary_position;
+        auto const& coords = primitive_cell_sites[i].fractional_position;
         std::println(stream, "{:3}{:14.7f}{:14.7f}{:14.7f}", i, coords[0], coords[1], coords[2]);
     }
 
@@ -209,10 +209,10 @@ void Lattice::legacy_compatible_format_into(std::ostream& stream) const
 
     std::print(stream, "\n"
                        "\n"
-                       " Supercell vectors (fractionary unit)\n");
+                       " Supercell vectors (fractional unit)\n");
     for (int i = 0; i < 3; ++i) {
         for (int j = 0; j < 3; ++j) {
-            std::print(stream, "{:5}", supercell_fractionary_basis(j, i));
+            std::print(stream, "{:5}", supercell_fractional_basis(j, i));
         }
         std::print(stream, "\n");
     }
