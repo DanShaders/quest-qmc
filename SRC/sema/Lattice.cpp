@@ -181,6 +181,8 @@ auto Lattice::fractional_coords_to_cell(Vector3i const& coords) const -> CellLoo
         component = coordinate_inside_supercell;
     }
 
+    coords_to_lookup = supercell_fractional_basis * coords_to_lookup / supercell_size;
+
     result.primitive_cell = cell_by_fractional_coords.at(coords_to_lookup);
 
     return result;

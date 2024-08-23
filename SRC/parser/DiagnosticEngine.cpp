@@ -26,8 +26,13 @@ SourceRange SourceRange::combined_with(SourceRange other)
 
 void DiagnosticEngine::format_diagnostics(std::ostream& output)
 {
+    SourceRange previous_location;
+
     for (auto const& message : m_messages) {
         auto const& location = message.location;
+
+        bool omit_source = (previous_location == location && message.severity == Severity::Note);
+        previous_location = location;
 
         auto severity = severity_to_string_view(message.severity);
 
@@ -81,6 +86,10 @@ void DiagnosticEngine::format_diagnostics(std::ostream& output)
 
         std::println(output, "{}:{}:{}: {}: {}",
             filename, start_line + 1, start_column + 1, severity, message.message);
+
+        if (omit_source) {
+            continue;
+        }
 
         for (size_t line = start_line; line <= end_line; ++line) {
             size_t line_start_offset = line ? line_offsets[line - 1] + 1 : 0;

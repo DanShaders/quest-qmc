@@ -33,6 +33,8 @@ public:
         return { file.content().data(), eof_marker };
     }
 
+    bool operator==(SourceRange const&) const = default;
+
     bool is_null() const { return m_start == nullptr && m_length == 0; }
     bool is_file() const { return m_start != nullptr && (m_length == 0 || m_length == eof_marker); }
     bool is_source_range() const { return m_length != 0 && m_length != eof_marker; }

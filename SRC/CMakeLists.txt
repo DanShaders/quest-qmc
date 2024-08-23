@@ -44,6 +44,7 @@ set(SOURCES
     parser/LineLexer.cpp
     sema/Hamiltonian.cpp
     sema/Lattice.cpp
+    sema/Symmetry.cpp
 
     blaslapack.c++
     computeg.c++

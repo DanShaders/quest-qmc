@@ -2,7 +2,7 @@
 
 namespace dqmc {
 
-using Eigen::Matrix3d, Eigen::Matrix3i, Eigen::MatrixXd,
+using Eigen::Matrix3d, Eigen::Matrix3i, Eigen::MatrixXd, Eigen::MatrixXi,
     Eigen::Vector3d, Eigen::Vector3i;
 
 using Vector3iComparator = decltype([](Vector3i const& a, Vector3i const& b) {

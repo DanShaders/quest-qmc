@@ -58,10 +58,21 @@ struct Hamiltonian {
         f64 mu_up;
         f64 mu_down;
         f64 u;
+
+        bool operator==(OnSiteInteration const&) const = default;
     };
 
     MatrixXd hoppings[2];
     std::vector<OnSiteInteration> interactions;
+};
+
+struct EquivalenceClasses {
+    // Equivalence classes of Green's function. For every equivalence class k, there exists a real
+    // number v such that for all sites i and j such that `pair_class[i, j] == k`,
+    // `G_ij == greens_fn_phase[i, j] * v`.
+    MatrixXi pair_class;
+
+    MatrixXi greens_fn_phase; // 1, -1, or 0
 };
 
 struct Context {
@@ -71,14 +82,17 @@ struct Context {
 
     Lattice& lattice;
     Hamiltonian& hamiltonian;
+    EquivalenceClasses& equivalence_classes;
 };
 
 parser::DiagnosticOr<void> build_lattice(Context& ctx);
 parser::DiagnosticOr<void> build_hamiltonian(Context& ctx);
+parser::DiagnosticOr<void> find_equivalence_classes(Context& ctx);
 
 struct Geometry {
     Lattice lattice;
     Hamiltonian hamiltonian;
+    EquivalenceClasses equivalence_classes;
 };
 
 inline parser::DiagnosticOr<Geometry> build_geometry(
@@ -87,9 +101,17 @@ inline parser::DiagnosticOr<Geometry> build_geometry(
     parser::ParsedFreeformGeometryParameters const& parameters)
 {
     Geometry result;
-    Context ctx { diag, geometry, parameters, result.lattice, result.hamiltonian };
+    Context ctx {
+        .diag = diag,
+        .geometry = geometry,
+        .parameters = parameters,
+        .lattice = result.lattice,
+        .hamiltonian = result.hamiltonian,
+        .equivalence_classes = result.equivalence_classes,
+    };
     TRY(build_lattice(ctx));
     TRY(build_hamiltonian(ctx));
+    TRY(find_equivalence_classes(ctx));
     return result;
 }
 
