@@ -382,7 +382,7 @@ void SymmetryProcessingContext::find_equivalence_classes()
         parameters.should_negate_phase[1],
         parameters.should_negate_phase[2]
     };
-    k = lattice.supercell_basis_inverse.transpose() * k;
+    k = lattice.supercell_basis_adjugate.transpose() * k;
 
     for (auto translation : std::initializer_list<Vector3i> { { 1, 0, 0 }, { 0, 1, 0 }, { 0, 0, 1 } }) {
         std::vector<int> permutation;

@@ -4,7 +4,7 @@
 
 namespace dqmc {
 
-std::pair<int, Matrix3i> compute_premultiplied_inverse(Matrix3i const& basis)
+std::pair<int, Matrix3i> compute_adjugate(Matrix3i const& basis)
 {
     int det = basis.determinant();
 

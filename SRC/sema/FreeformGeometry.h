@@ -46,7 +46,7 @@ struct Lattice {
     // abs(det(supercell_fractional_basis)), same as primitive_cells_in_supercell.size()
     int supercell_size;
     // supercell_fractional_basis^(-1) * supercell_size
-    Matrix3i supercell_basis_inverse;
+    Matrix3i supercell_basis_adjugate;
     // Map from primitive_cells_in_supercell elements into their index
     std::map<Vector3i, int, Vector3iComparator> cell_by_fractional_coords;
 

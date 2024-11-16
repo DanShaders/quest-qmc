@@ -10,6 +10,6 @@ using Vector3iComparator = decltype([](Vector3i const& a, Vector3i const& b) {
 });
 
 // Returns { abs(det(basis)), (basis)^-1 * abs(det) }.
-std::pair<int, Matrix3i> compute_premultiplied_inverse(Matrix3i const& basis);
+std::pair<int, Matrix3i> compute_adjugate(Matrix3i const& basis);
 
 } // namespace dqmc

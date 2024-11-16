@@ -26,8 +26,8 @@ void LatticeBuildingContext::compute_primitive_cells_in_supercell()
 {
     // Compute the number of points with integer fractional coordinates in a supercell. These will
     // be precisely points we are interested to find explicitly.
-    std::tie(lattice.supercell_size, lattice.supercell_basis_inverse)
-        = compute_premultiplied_inverse(lattice.supercell_fractional_basis);
+    std::tie(lattice.supercell_size, lattice.supercell_basis_adjugate)
+        = compute_adjugate(lattice.supercell_fractional_basis);
 
     std::vector<Vector3i> result = { { 0, 0, 0 } };
     std::set<Vector3i, Vector3iComparator> seen_vertices;
@@ -46,7 +46,7 @@ void LatticeBuildingContext::compute_primitive_cells_in_supercell()
         auto site = result[i];
 
         for (int direction = 0; direction < 3; ++direction) {
-            Vector3i neighbor = site + lattice.supercell_basis_inverse.col(direction);
+            Vector3i neighbor = site + lattice.supercell_basis_adjugate.col(direction);
 
             for (int component = 0; component < 3; ++component) {
                 int& coordinate = neighbor[component];
@@ -171,7 +171,7 @@ auto Lattice::fractional_coords_to_cell(Vector3i const& coords) const -> CellLoo
 {
     CellLookupResult result;
 
-    Vector3i coords_to_lookup = supercell_basis_inverse * coords;
+    Vector3i coords_to_lookup = supercell_basis_adjugate * coords;
     for (auto [i, component] : enumerate(coords_to_lookup)) {
         int coordinate_inside_supercell = component % supercell_size;
         if (coordinate_inside_supercell < 0) {
