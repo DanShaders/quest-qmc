@@ -429,7 +429,7 @@ void SymmetryProcessingContext::find_equivalence_classes()
 
     for (int i = 0; i < sites_count; ++i) {
         for (int j = 0; j < sites_count; ++j) {
-            auto [pair_class, phase, is_inconsistent] = dsu.get(i * sites_count + j);
+            auto [pair_class, phase, is_inconsistent] = dsu.get(as_dsu_index(i, j));
             int current_class;
             if (auto it = pair_classes_remap.find(pair_class); it != pair_classes_remap.end()) {
                 current_class = it->second;
