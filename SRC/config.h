@@ -1,9 +1,9 @@
 #pragma once
 
-#include "SRC/common.h"
-
 #include <expected>
 #include <map>
+
+#include "SRC/common.h"
 
 namespace dqmc {
 

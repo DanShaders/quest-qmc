@@ -1,5 +1,5 @@
-#include "SRC/parser/FreeformGeometryParser.h"
 #include "SRC/common/Ascii.h"
+#include "SRC/parser/FreeformGeometryParser.h"
 
 namespace dqmc::parser {
 

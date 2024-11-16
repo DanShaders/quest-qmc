@@ -1,5 +1,5 @@
-#include "SRC/parser/Config.h"
 #include "SRC/common/Ascii.h"
+#include "SRC/parser/Config.h"
 
 namespace dqmc::parser {
 

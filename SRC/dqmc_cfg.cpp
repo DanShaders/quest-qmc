@@ -1,9 +1,9 @@
-#include "SRC/config.h"
-
 #include <fast_float/fast_float.h>
 #include <fstream>
 #include <ranges>
 #include <utility>
+
+#include "SRC/config.h"
 
 namespace dqmc {
 

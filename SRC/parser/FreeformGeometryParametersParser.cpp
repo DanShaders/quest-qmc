@@ -1,5 +1,5 @@
-#include "SRC/parser/FreeformGeometryParametersParser.h"
 #include "SRC/common/Enumerate.h"
+#include "SRC/parser/FreeformGeometryParametersParser.h"
 
 namespace dqmc::parser {
 

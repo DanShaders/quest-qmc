@@ -1,7 +1,7 @@
-#include "SRC/config.h"
-
 #include <charconv>
 #include <fast_float/fast_float.h>
+
+#include "SRC/config.h"
 
 namespace dqmc {
 
