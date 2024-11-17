@@ -44,8 +44,8 @@ parser::DiagnosticOr<void> HamiltonianBuildingContext::add_hopping(RawGeometry::
 {
     // First, we figure out the sum of lattice basis vectors (modulo superlattice) that gives the
     // delta specified.
-    Vector3d fractional_shift_fp = lattice.sites[hopping.to].cartesian_position
-        - (lattice.sites[hopping.from].cartesian_position + Vector3d { hopping.coordinate_delta });
+    Vector3d fractional_shift_fp = lattice.sites[hopping.from].cartesian_position
+        + Vector3d { hopping.coordinate_delta } - lattice.sites[hopping.to].cartesian_position;
     fractional_shift_fp = lattice_basis_inverse * fractional_shift_fp;
 
     // FIXME: We should not allow shifts that have more dimensions than the primary cell lattice
