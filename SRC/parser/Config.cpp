@@ -10,7 +10,7 @@ ConfigParser::ConfigParser(std::shared_ptr<FileView> file, DiagnosticEngine& dia
     m_diag.register_file(m_file);
 }
 
-DiagnosticOr<void> ConfigParser::parse()
+DiagnosticOr<void> ConfigParser::parse(ReportUnusedKeys report_unused_keys)
 {
     Lexer lexer { m_file->content(), SourceRange::at_end_of_file(*m_file), m_diag };
     while (true) {
@@ -18,15 +18,30 @@ DiagnosticOr<void> ConfigParser::parse()
         if (!line.has_value()) {
             break;
         }
+
         auto key = TRY(line->read_string("key"));
         std::ranges::transform(key.value, key.value.begin(), ascii_to_lower);
         TRY(line->read_equals());
-        m_parameters.emplace(key.value, Parameter { .lexer = std::move(*line) });
+
+        m_parameters.emplace(key.value,
+            Parameter {
+                .location = key.location,
+                .lexer = std::move(*line),
+            });
     }
 
     for (auto& parser : m_parsers) {
         parser->parse(*this, m_diag);
     }
+
+    if (report_unused_keys == ReportUnusedKeys::Yes) {
+        for (auto& [key, parameter] : m_parameters) {
+            if (!parameter.is_claimed) {
+                m_diag.warning(parameter.location, "key '{}' is not used", key);
+            }
+        }
+    }
+
     return {};
 }
 

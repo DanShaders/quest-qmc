@@ -30,6 +30,11 @@ struct ArrayWithSourceLocation {
 
 class ConfigParser {
 public:
+    enum class ReportUnusedKeys {
+        Yes,
+        No,
+    };
+
     ConfigParser(std::shared_ptr<FileView> file, DiagnosticEngine& diag);
 
     template<std::derived_from<ParametersParser> T, typename... Args>
@@ -40,7 +45,7 @@ public:
         return *static_cast<T*>(m_parsers.back().get());
     }
 
-    DiagnosticOr<void> parse();
+    DiagnosticOr<void> parse(ReportUnusedKeys = ReportUnusedKeys::Yes);
 
     DiagnosticOr<Token<f64>> claim_double(
         std::string_view key,
@@ -54,6 +59,7 @@ private:
     DiagnosticOr<LineLexer*> claim_lexer(std::string_view key);
 
     struct Parameter {
+        SourceRange location;
         LineLexer lexer;
         bool is_claimed = false;
     };
