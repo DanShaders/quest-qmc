@@ -12,4 +12,9 @@ using Vector3iComparator = decltype([](Vector3i const& a, Vector3i const& b) {
 // Returns { abs(det(basis)), (basis)^-1 * abs(det) }.
 std::pair<int, Matrix3i> compute_adjugate(Matrix3i const& basis);
 
+inline Vector3i round_to_nearest_integer(Vector3d const& v)
+{
+    return v.array().round().cast<int>();
+}
+
 } // namespace dqmc

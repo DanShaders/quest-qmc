@@ -177,7 +177,7 @@ parser::DiagnosticOr<int> SymmetryProcessingContext::find_mapped_site(int site_i
 
         Vector3d shift = candidate.fractional_position - map_fractionary;
 
-        candidates.push_back({ (shift - shift.cast<int>().cast<f64>()).squaredNorm(), i });
+        candidates.push_back({ (shift - round_to_nearest_integer(shift).cast<f64>()).squaredNorm(), i });
     }
     if (candidates.size() > 1) {
         std::ranges::nth_element(candidates, candidates.begin() + 1);
@@ -207,7 +207,7 @@ parser::DiagnosticOr<int> SymmetryProcessingContext::find_mapped_site(int site_i
 
     int mapped_site_remainder = candidates[0].second;
     auto const& best_candidate = lattice.primitive_cell_sites[mapped_site_remainder];
-    Vector3i shift = (map_fractionary - best_candidate.fractional_position).cast<int>();
+    Vector3i shift = round_to_nearest_integer(map_fractionary - best_candidate.fractional_position);
     int mapped_site_quotient = lattice.fractional_coords_to_cell(shift).primitive_cell;
 
     return mapped_site_remainder + mapped_site_quotient * lattice.primitive_cell_sites.size();

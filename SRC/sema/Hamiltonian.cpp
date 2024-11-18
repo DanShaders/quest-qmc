@@ -51,14 +51,14 @@ parser::DiagnosticOr<void> HamiltonianBuildingContext::add_hopping(RawGeometry::
     // FIXME: We should not allow shifts that have more dimensions than the primary cell lattice
     //        itself. We should also split dimension number of the lattice and of the points
     //        inside it.
-    Vector3i fractional_shift = fractional_shift_fp.cast<int>();
+    Vector3i fractional_shift = round_to_nearest_integer(fractional_shift_fp);
 
     double badness = (fractional_shift.cast<f64>() - fractional_shift_fp).squaredNorm();
 
     if (badness > epsilon) {
         return diag.error(hopping.location,
-            "distance {:.1e} (in supercell lattice basis) to the best candidate for the "
-            "mentioned site is larger than allowed {:.1e} rounding error",
+            "distance {:.1e} (in lattice basis) to the best candidate for the mentioned site is "
+            "larger than allowed {:.1e} rounding error",
             sqrt(badness), sqrt(epsilon));
     }
 
