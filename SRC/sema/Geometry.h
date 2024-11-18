@@ -73,10 +73,20 @@ struct EquivalenceClasses {
     MatrixXi greens_fn_phase; // 1, -1, or 0
 };
 
+struct LatticeBipartition {
+    // Partition of the lattice sites into two disjoint sets. For site v in one set, phase[v] == 1,
+    // and for the other set, phase[v] == -1. Edges of the graph are non-zero hoppings, so if
+    // hamiltonian.hoppings[i, j] != 0, then phase[i] != phase[j].
+    //
+    // Despite a somewhat unconventional name, this is just a plain graph bipartition.
+    std::vector<int> phase;
+};
+
 struct Geometry {
     Lattice lattice;
     Hamiltonian hamiltonian;
     EquivalenceClasses equivalence_classes;
+    std::optional<LatticeBipartition> bipartition;
 };
 
 } // namespace dqmc::sema

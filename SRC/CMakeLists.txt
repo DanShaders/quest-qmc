@@ -43,6 +43,7 @@ set(SOURCES
     parser/Lexer.cpp
     parser/LineLexer.cpp
     parser/SimulationParametersParser.cpp
+    sema/Bipartition.cpp
     sema/Hamiltonian.cpp
     sema/Lattice.cpp
     sema/Symmetry.cpp
