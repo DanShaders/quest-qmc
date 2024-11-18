@@ -42,6 +42,7 @@ set(SOURCES
     parser/FreeformGeometryParser.cpp
     parser/Lexer.cpp
     parser/LineLexer.cpp
+    parser/SimulationParametersParser.cpp
     sema/Hamiltonian.cpp
     sema/Lattice.cpp
     sema/Symmetry.cpp

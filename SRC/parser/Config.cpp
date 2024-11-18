@@ -59,6 +59,26 @@ DiagnosticOr<Token<f64>> ConfigParser::claim_double(
     return result;
 }
 
+template<std::integral T>
+DiagnosticOr<Token<T>> ConfigParser::claim_integer(
+    std::string_view key,
+    std::optional<T> default_value)
+{
+    if (default_value.has_value() && !m_parameters.contains(key)) {
+        return Token { default_value.value() };
+    }
+
+    auto& lexer = *TRY(claim_lexer(key));
+    auto result = TRY(lexer.read_integer<T>(std::format("{} value", key)));
+    TRY(lexer.expect_eof());
+    return result;
+}
+
+template DiagnosticOr<Token<i32>> ConfigParser::claim_integer<i32>(std::string_view, std::optional<i32>);
+template DiagnosticOr<Token<u32>> ConfigParser::claim_integer<u32>(std::string_view, std::optional<u32>);
+template DiagnosticOr<Token<i64>> ConfigParser::claim_integer<i64>(std::string_view, std::optional<i64>);
+template DiagnosticOr<Token<u64>> ConfigParser::claim_integer<u64>(std::string_view, std::optional<u64>);
+
 DiagnosticOr<ArrayWithSourceLocation<f64>> ConfigParser::claim_double_array(
     std::string_view key,
     std::optional<std::vector<f64>> default_value)

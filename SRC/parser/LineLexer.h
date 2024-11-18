@@ -11,7 +11,8 @@ public:
 
     bool skip_whitespace();
 
-    DiagnosticOr<Token<int>> read_integer(std::string_view name);
+    template<std::integral T = i32>
+    DiagnosticOr<Token<T>> read_integer(std::string_view name);
     DiagnosticOr<Token<f64>> read_double(std::string_view name);
     DiagnosticOr<Token<std::string>> read_string(std::string_view name);
 

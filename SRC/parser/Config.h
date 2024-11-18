@@ -51,6 +51,11 @@ public:
         std::string_view key,
         std::optional<f64> default_value = std::nullopt);
 
+    template<std::integral T = i32>
+    DiagnosticOr<Token<T>> claim_integer(
+        std::string_view key,
+        std::optional<T> default_value = std::nullopt);
+
     DiagnosticOr<ArrayWithSourceLocation<f64>> claim_double_array(
         std::string_view key,
         std::optional<std::vector<f64>> default_value = std::nullopt);
