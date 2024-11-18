@@ -23,19 +23,19 @@ parser::DiagnosticOr<void> build_lattice(Context& ctx);
 parser::DiagnosticOr<void> build_hamiltonian(Context& ctx);
 parser::DiagnosticOr<void> find_equivalence_classes(Context& ctx);
 
-inline parser::DiagnosticOr<Geometry> build_geometry(
+inline parser::DiagnosticOr<std::unique_ptr<Geometry>> build_geometry(
     parser::DiagnosticEngine& diag,
     parser::ParsedFreeformGeometry const& geometry,
     parser::ParsedFreeformGeometryParameters const& parameters)
 {
-    Geometry result;
+    auto result = std::make_unique<Geometry>();
     Context ctx {
         .diag = diag,
         .geometry = geometry,
         .parameters = parameters,
-        .lattice = result.lattice,
-        .hamiltonian = result.hamiltonian,
-        .equivalence_classes = result.equivalence_classes,
+        .lattice = result->lattice,
+        .hamiltonian = result->hamiltonian,
+        .equivalence_classes = result->equivalence_classes,
     };
     TRY(build_lattice(ctx));
     TRY(build_hamiltonian(ctx));
