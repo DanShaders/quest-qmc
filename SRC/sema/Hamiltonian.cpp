@@ -62,6 +62,8 @@ parser::DiagnosticOr<void> HamiltonianBuildingContext::add_hopping(RawGeometry::
             sqrt(badness), sqrt(epsilon));
     }
 
+    bool warned_about_noop_hopping = false;
+
     for (auto [from_cell_index, from_cell] : enumerate(lattice.primitive_cells_in_supercell)) {
         // Next, for every primitive cell in a supercell, we figure out the primitive cell
         // to which fractional_shift would lead us.
@@ -77,10 +79,11 @@ parser::DiagnosticOr<void> HamiltonianBuildingContext::add_hopping(RawGeometry::
         int from_site = from_cell_index * cell_site_count + hopping.from;
         int to_site = to_cell_index * cell_site_count + hopping.to;
 
-        if (from_site == to_site) {
-            return diag.error(hopping.location,
-                "hopping terms with equal endpoints in quotient of the lattice by "
-                "supercell are not implemented, shift chemical potential instead");
+        if (!warned_about_noop_hopping && from_site == to_site) {
+            warned_about_noop_hopping = true;
+            diag.warning(hopping.location,
+                "hopping term with equal endpoints in the quotient of the lattice by supercell "
+                "is equivalent to a shift in the chemical potential");
         }
 
         int phase_shift = should_negate_phase ? -1 : 1;
